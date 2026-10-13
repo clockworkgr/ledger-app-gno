@@ -6,9 +6,10 @@ def test_app_mainmenu(device, navigator, test_name, default_screenshot_path):
     # Navigate in the main menu
     if device.is_nano:
         instructions = [
-            NavInsID.RIGHT_CLICK,
-            NavInsID.RIGHT_CLICK,
-            NavInsID.RIGHT_CLICK,
+            NavInsID.RIGHT_CLICK,  # Show address
+            NavInsID.RIGHT_CLICK,  # App settings
+            NavInsID.RIGHT_CLICK,  # App info
+            NavInsID.RIGHT_CLICK,  # Quit
         ]
     else:
         instructions = [

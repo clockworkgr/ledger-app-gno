@@ -19,6 +19,11 @@ disagree, the Go code on `master` wins. Fix this file in the same change.
 - Public key: 33-byte compressed SEC1.
 - Address: `RIPEMD160(SHA256(compressed_pubkey))`, 20 bytes (`tm2/pkg/crypto/secp256k1`).
 - Bech32 HRP: `g` for addresses (`g1...`), `gpub` for public keys.
+- "Show address" on the home screen lets the user check an address without a host: they type an
+  index on the keypad and the device shows the address and path for `m/44'/118'/0'/0/index`.
+  The keypad takes at most 7 digits (indices up to 9,999,999), because Nano's NBGL keypad keeps
+  the entry in 8 bytes and displays it as a C string. Other accounts remain reachable over
+  `GET_PUBLIC_KEY`.
 
 ## Sign bytes
 
@@ -194,7 +199,8 @@ the tests. Stax unless noted; Nano X, Flex and Apex P are under the same test na
 
 ### Home and settings
 
-The home screen, app info and the Packages setting (off by default).
+The home screen with its "Show address" button, app info and the Packages setting (off by
+default).
 
 <p><img src="../tests/standalone/snapshots/stax/test_app_mainmenu/00000.png" width="96" alt="test_app_mainmenu 0"> <img src="../tests/standalone/snapshots/stax/test_app_mainmenu/00001.png" width="96" alt="test_app_mainmenu 1"> <img src="../tests/standalone/snapshots/stax/test_app_mainmenu/00002.png" width="96" alt="test_app_mainmenu 2"> <img src="../tests/standalone/snapshots/stax/test_app_mainmenu/00003.png" width="96" alt="test_app_mainmenu 3"></p>
 
@@ -203,6 +209,12 @@ The home screen, app info and the Packages setting (off by default).
 `GET_PUBLIC_KEY` with display: the `g1` address for `m/44'/118'/0'/0/0`.
 
 <p><img src="../tests/standalone/snapshots/stax/test_get_public_key_confirm_accepted/00000.png" width="96" alt="test_get_public_key_confirm_accepted 0"> <img src="../tests/standalone/snapshots/stax/test_get_public_key_confirm_accepted/00001.png" width="96" alt="test_get_public_key_confirm_accepted 1"> <img src="../tests/standalone/snapshots/stax/test_get_public_key_confirm_accepted/00002.png" width="96" alt="test_get_public_key_confirm_accepted 2"> <img src="../tests/standalone/snapshots/stax/test_get_public_key_confirm_accepted/00003.png" width="96" alt="test_get_public_key_confirm_accepted 3"></p>
+
+### Show address
+
+"Show address" on the home screen: the keypad, then the address and path for the typed index.
+
+<p><img src="../tests/standalone/snapshots/stax/test_show_address_accepted/keypad/00001.png" width="96" alt="test_show_address_accepted keypad 1"> <img src="../tests/standalone/snapshots/stax/test_show_address_accepted/keypad/00002.png" width="96" alt="test_show_address_accepted keypad 2"> <img src="../tests/standalone/snapshots/stax/test_show_address_accepted/00000.png" width="96" alt="test_show_address_accepted 0"> <img src="../tests/standalone/snapshots/stax/test_show_address_accepted/00001.png" width="96" alt="test_show_address_accepted 1"> <img src="../tests/standalone/snapshots/stax/test_show_address_accepted/00002.png" width="96" alt="test_show_address_accepted 2"></p>
 
 ### Send
 
