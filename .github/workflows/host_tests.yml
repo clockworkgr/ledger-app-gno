@@ -27,7 +27,7 @@ jobs:
       # ignores [unstable], so the host tests use it.
       RUSTUP_TOOLCHAIN: stable
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - run: rustup toolchain install stable --profile minimal --component rustfmt
       - run: cargo fmt --check
         working-directory: host-tests
@@ -38,7 +38,7 @@ jobs:
     name: Vectors match upstream gno
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-go@v6
         with:
           go-version-file: tools/vectors/go.mod
