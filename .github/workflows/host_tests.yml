@@ -1,0 +1,44 @@
+name: Host-side parser tests
+
+# The sign-doc parser in src/tx has no device dependency. host-tests compiles it
+# for the host and replays the payloads in tests/vectors, which tools/vectors
+# renders with upstream gno. The second job fails if those vectors drift from
+# what the pinned gno version produces.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+      - main
+      - develop
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  parser:
+    name: Parser tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --check
+        working-directory: host-tests
+      - run: cargo test
+        working-directory: host-tests
+
+  vectors:
+    name: Vectors match upstream gno
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: tools/vectors/go.mod
+      - run: go run . > ../../tests/vectors/sign_docs.json
+        working-directory: tools/vectors
+      - run: git diff --exit-code tests/vectors

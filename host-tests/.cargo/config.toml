@@ -1,0 +1,3 @@
+# Overrides the device build settings inherited from ../.cargo/config.toml.
+[build]
+target = "host-tuple"

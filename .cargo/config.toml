@@ -15,8 +15,7 @@ lto = true
 build-std = ["core", "alloc"]
 build-std-features = ["compiler-builtins-mem"]
 
-# By default, heap size is enforced to 8192 bytes.
-# Authorized values are [2048, 4096, 8192, 16384, 24576]
-# Uncomment the following lines to set the heap size to 4096 bytes for instance
-#[env]
-#HEAP_SIZE = "4096"
+# Authorized values are [2048, 4096, 8192, 16384, 24576]. The largest review
+# (MAX_REVIEW_BYTES in src/tx/mod.rs) is held twice while NBGL shows it.
+[env]
+HEAP_SIZE = "16384"

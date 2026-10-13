@@ -1,0 +1,15 @@
+[package]
+name = "host-tests"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+# Host-side tests for the SDK-free modules under ../src/tx, replayed against
+# payloads rendered by upstream gno (tests/vectors/sign_docs.json).
+
+[dependencies]
+sha2 = "0.10"
+ripemd = "0.1"
+
+[dev-dependencies]
+serde_json = "1"

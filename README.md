@@ -1,12 +1,22 @@
-# Ledger Rust Boilerplate Application
+# Ledger Gno Application
 
-![Rule enforcer](https://github.com/LedgerHQ/app-boilerplate-rust/actions/workflows/guidelines_enforcer.yml/badge.svg) ![Build and tests](https://github.com/LedgerHQ/app-boilerplate-rust/actions/workflows/build_and_functional_tests.yml/badge.svg)
+A Ledger device application that signs [gno.land](https://gno.land) transactions, for Nano X,
+Nano S+, Stax, Flex and Apex P.
 
-This is a boilerplate application written in Rust which can be forked to start a new project for the Ledger devices.
+* Derives tm2 accounts on `m/44'/118'/account'/0/index` and shows `g1...` addresses.
+* Streams the amino sign doc, so payload size is not bounded by device RAM, and accepts only
+  the exact bytes gno produces for the supported message types.
+* Clear-signs bank sends, realm calls, package approval and rejection, and session keys.
+* Package deployment (`m_addpkg`) and scripts (`m_run`) carry source code that cannot be shown on
+  a device. They are off by default and, once enabled under Settings > Packages, are signed
+  through Ledger's blind-signing flow with a package fingerprint to compare off-device. The
+  review also lists the files, and the imports and literal addresses found in the code.
 
-* Implements standard features (display address, transaction signature...),
-* Has functional tests using [Ragger](https://github.com/LedgerHQ/ragger),
-* Has CI workflows mandatory for app deployment in the Ledger store.
+Protocol: [`docs/APDU.md`](docs/APDU.md). Chain rules and signing policy:
+[`docs/GNO.instructions.md`](docs/GNO.instructions.md).
+
+Built from [LedgerHQ/app-boilerplate-rust](https://github.com/LedgerHQ/app-boilerplate-rust); the
+development environment below is unchanged from it.
 
 ### Links
 
@@ -27,8 +37,7 @@ By using Ledger's own developer tools [Docker image](https://github.com/LedgerHQ
   * On macOS, install and launch [XQuartz](https://www.xquartz.org/) (make sure to go to XQuartz > Preferences > Security and check "Allow client connections").
   * On Windows, install and launch [VcXsrv](https://sourceforge.net/projects/vcxsrv/) (make sure to configure it to disable access control).
 * Install [VScode](https://code.visualstudio.com/download) and add [Ledger's extension](https://marketplace.visualstudio.com/items?itemName=LedgerHQ.ledger-dev-tools).
-* Open a terminal and clone `app-boilerplate-rust` with `git clone git@github.com:LedgerHQ/app-boilerplate-rust.git`.
-* Open the `app-boilerplate-rust` folder with VSCode.
+* Clone this repository with its submodule (`git clone --recurse-submodules`), and open it with VSCode.
 * Use Ledger extension's sidebar menu or open the tasks menu with `ctrl + shift + b` (`command + shift + b` on a Mac) to conveniently execute actions :
   * **Build** the app for the device model of your choice with `Build`.
   * **Test** your binary on the [Speculos emulator](https://github.com/LedgerHQ/speculos) with `Run with emulator`.
@@ -85,7 +94,7 @@ Any of the commands from [Building](#building) and [Testing](#testing) can be ru
 
 ### Building
 
-You can build the boilerplate with the following command executed in the root directory of the app.
+You can build the app with the following command executed in the root directory of the app.
 ```bash
 cargo ledger build nanox
 ```
@@ -94,10 +103,14 @@ This command will build the app for the Nano X, but you can use any supported de
 > ℹ️ `.cargo/config.toml` sets `apex_p` as the default cargo target, so a bare `cargo ledger build` builds for Apex P. Always pass the device explicitly to be sure.
 
 ### Testing
+#### Parser tests on the host
+The sign-doc parser (`src/tx`) has no device dependency and is tested on the host against
+payloads rendered by upstream gno (`tests/vectors/sign_docs.json`, produced by `tools/vectors`):
+```bash
+cd host-tests && cargo test
+```
 #### Ragger functional tests
-This boilerplate app comes with functional tests implemented with Ledger's [Ragger](https://github.com/LedgerHQ/ragger) test framework. There are two suites:
-* `tests/standalone/` — normal app launch (dashboard → app).
-* `tests/swap/` — the Exchange-driven swap flow (requires Exchange + Ethereum app binaries, see [tests/swap/README.md](tests/swap/README.md)).
+Functional tests use Ledger's [Ragger](https://github.com/LedgerHQ/ragger) framework, in `tests/standalone/`.
 
 * Install the tests requirements
 ```bash
@@ -114,12 +127,12 @@ pytest tests/standalone/ --tb=short -v --device {nanosp | nanox | stax | flex | 
 You can also run the app directly on the [Speculos emulator](https://github.com/LedgerHQ/speculos) from the Docker container
 #### Nano S+ or X
 ```bash
-speculos --apdu-port 9999 --api-port 5001 --display headless target/nanosplus/release/app-boilerplate-rust
+speculos --apdu-port 9999 --api-port 5001 --display headless target/nanosplus/release/app-gno
 ```
 :warning: UI is displayed on `localhost:5001`
 #### Stax, Flex or Apex P
 ```bash
-speculos --apdu-port 9999 --api-port 5001 target/stax/release/app-boilerplate-rust
+speculos --apdu-port 9999 --api-port 5001 target/stax/release/app-gno
 ```
 
 :warning: UI is displayed by your X server
@@ -139,7 +152,7 @@ pip3 install ledgerblue
 ```
 * Load on device, e.g. for Flex:
 ```bash
-python3 -m ledgerblue.runScript --targetId <id> --fileName target/flex/release/app-boilerplate-rust.apdu --apdu --scp
+python3 -m ledgerblue.runScript --targetId <id> --fileName target/flex/release/app-gno.apdu --apdu --scp
 ```
 
 ℹ️ Your device must be connected, unlocked and the screen showing the dashboard (not inside an application).
@@ -150,12 +163,12 @@ ledgerblue needs the device's `targetId`.
 
 If you call ledgerblue manually, note that its `--targetId` defaults to `0x31100002` (Nano S) — wrong for every other device, and it is **not** auto-detected from the connected device. The cleanest option is to let ledgerblue read the id straight from the ELF with `--elfFile`, which overrides `--targetId`:
 ```bash
-python3 -m ledgerblue.runScript --elfFile target/flex/release/app-boilerplate-rust --fileName <install_script> --apdu --scp
+python3 -m ledgerblue.runScript --elfFile target/flex/release/app-gno --fileName <install_script> --apdu --scp
 ```
 
 If you instead need the raw target ID value (e.g. for a CI script), the [`tools/get_target_id.py`](tools/get_target_id.py) helper extracts it from the `ledger.target_id` ELF section:
 ```bash
-python3 tools/get_target_id.py target/flex/release/app-boilerplate-rust   # -> 0x33300004
+python3 tools/get_target_id.py target/flex/release/app-gno   # -> 0x33300004
 ```
 
 #### For end users: standalone installer
@@ -168,6 +181,8 @@ The following workflows are executed in [GitHub Actions](https://github.com/feat
 * Ledger guidelines enforcer which verifies that an app is compliant with Ledger guidelines. The successful completion of this reusable workflow is a mandatory step for an app to be available on the Ledger application store. More information on the guidelines can be found in the repository [ledger-app-workflow](https://github.com/LedgerHQ/ledger-app-workflows)
 * Compilation of the application for all supported devices in the [ledger-app-builder](https://github.com/LedgerHQ/ledger-app-builder) docker image
 * End-to-end tests with the [Speculos](https://github.com/LedgerHQ/speculos) emulator and [ragger](https://github.com/LedgerHQ/ragger) (see [tests/](tests/))
+* Host-side parser tests, and a check that `tests/vectors` still matches the pinned gno version
+* CodeQL analysis (`security-and-quality` queries) of the Rust sources, workflows and test client
 * Various lint checks :
   * Source code lint checks with `cargo fmt`
   * Python functional test code lint checks with `pylint` and `mypy`

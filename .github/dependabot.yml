@@ -11,4 +11,7 @@ updates:
       interval: "daily"
     allow:
       - dependency-name: "ledger_device_sdk"
-      - dependency-name: "include_gif"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"

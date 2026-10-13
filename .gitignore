@@ -5,6 +5,7 @@ app_nanosplus.json
 app_nanox.json
 app_stax.json
 app_flex.json
+app_apex_p.json
 
 # Automatic generated NBGL glyphs
 glyphs/home_nano_nbgl.png
@@ -25,7 +26,3 @@ __pycache__/
 ledger/
 # Build directory
 build/
-
-# Helper script git clone
-tests/swap/.test_dependencies/app-exchange/
-tests/swap/.test_dependencies/app-ethereum/

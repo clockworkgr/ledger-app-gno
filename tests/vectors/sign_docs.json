@@ -1,0 +1,83 @@
+{
+  "mnemonic": "glory promote mansion idle axis finger extra february uncover one trip resource lawn turtle enact monster seven myth punch hobby comfort wild raise skin",
+  "path": "44'/118'/0'/0/0",
+  "pubkey": "026785bcec7c2441f8fbf40e1ba9f01028a26eadea29b7f5b3f3fc31d2c7b8dd3a",
+  "address": "g1lw3n03x3zcqgxncq866pl8np5spd2kpdy7x0vf",
+  "vectors": [
+    {
+      "name": "send",
+      "sign_bytes": "{\"account_number\":\"7\",\"chain_id\":\"test-chain\",\"fee\":{\"amount\":[{\"amount\":\"1000\",\"denom\":\"ugnot\"}],\"gas\":\"100000\"},\"memo\":\"\",\"msgs\":[{\"@type\":\"/bank.MsgSend\",\"amount\":\"1234567ugnot\",\"from_address\":\"g1lw3n03x3zcqgxncq866pl8np5spd2kpdy7x0vf\",\"to_address\":\"g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5\"}],\"sequence\":\"3\"}",
+      "signature": "5a8f1fc68e83d7fe73b0b42a52a7a52ea6098e69d4a5994e1ae6b59f8eeb2f622fedec44539214db624ab0ac0227716d2fd91bb22297a89db253983dcdcb6da4"
+    },
+    {
+      "name": "send_zero_fee_memo",
+      "sign_bytes": "{\"account_number\":\"7\",\"chain_id\":\"test-chain\",\"fee\":{\"amount\":[],\"gas\":\"100000\"},\"memo\":\"thanks\",\"msgs\":[{\"@type\":\"/bank.MsgSend\",\"amount\":\"1ugnot\",\"from_address\":\"g1lw3n03x3zcqgxncq866pl8np5spd2kpdy7x0vf\",\"to_address\":\"g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5\"}],\"sequence\":\"3\"}",
+      "signature": "05cb86abeaeec8ea4b8d93e7178ba21fd12718ab827f53e61df8e0e53ce59ab71df192a3b0172c5431eccd2f5077f2b07ce68f0122e66fc8962aeb66ac350bbd"
+    },
+    {
+      "name": "call",
+      "sign_bytes": "{\"account_number\":\"7\",\"chain_id\":\"test-chain\",\"fee\":{\"amount\":[{\"amount\":\"1000000\",\"denom\":\"ugnot\"}],\"gas\":\"2000000\"},\"memo\":\"\",\"msgs\":[{\"@type\":\"/vm.m_call\",\"args\":[\"1\",\"Hello\",\"World\"],\"caller\":\"g1lw3n03x3zcqgxncq866pl8np5spd2kpdy7x0vf\",\"func\":\"CreateThread\",\"max_deposit\":\"\",\"pkg_path\":\"gno.land/r/demo/boards\",\"send\":\"\"}],\"sequence\":\"3\"}",
+      "signature": "0905b94e2e22d181f5d59d35fcf9c08033b37b457fd99971fb7cc54c625fb522073cd6d7cbd0d19f9b4cd3931d73077fe177741031e97fcf728b65d9161c4533"
+    },
+    {
+      "name": "call_send_no_args",
+      "sign_bytes": "{\"account_number\":\"7\",\"chain_id\":\"test-chain\",\"fee\":{\"amount\":[{\"amount\":\"1000000\",\"denom\":\"ugnot\"}],\"gas\":\"2000000\"},\"memo\":\"\",\"msgs\":[{\"@type\":\"/vm.m_call\",\"caller\":\"g1lw3n03x3zcqgxncq866pl8np5spd2kpdy7x0vf\",\"func\":\"Deposit\",\"max_deposit\":\"7ugnot\",\"pkg_path\":\"gno.land/r/demo/wugnot\",\"send\":\"5ugnot\"}],\"sequence\":\"3\"}",
+      "signature": "708bb063d08bc1cc9f9f29a15d97b40ff27d4a31919dbe14ae1c1d9a28eb32c55776e016a4180323d983627b659810f1fb9dde880aaef8f89f1255afd38bb836"
+    },
+    {
+      "name": "two_msgs",
+      "sign_bytes": "{\"account_number\":\"7\",\"chain_id\":\"test-chain\",\"fee\":{\"amount\":[{\"amount\":\"2000\",\"denom\":\"ugnot\"}],\"gas\":\"200000\"},\"memo\":\"\",\"msgs\":[{\"@type\":\"/bank.MsgSend\",\"amount\":\"1ugnot\",\"from_address\":\"g1lw3n03x3zcqgxncq866pl8np5spd2kpdy7x0vf\",\"to_address\":\"g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5\"},{\"@type\":\"/bank.MsgSend\",\"amount\":\"2ugnot\",\"from_address\":\"g1lw3n03x3zcqgxncq866pl8np5spd2kpdy7x0vf\",\"to_address\":\"g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5\"}],\"sequence\":\"3\"}",
+      "signature": "3ed12879a1435e670a190b16dfdb69e1bfba571b0f566b5b8e027ada7d2ece3553aee48adc603a8c035a6e727527f08259065ca8a21c2600c188fc597fdef6cb"
+    },
+    {
+      "name": "enable_pkg",
+      "sign_bytes": "{\"account_number\":\"7\",\"chain_id\":\"test-chain\",\"fee\":{\"amount\":[{\"amount\":\"1000000\",\"denom\":\"ugnot\"}],\"gas\":\"2000000\"},\"memo\":\"\",\"msgs\":[{\"@type\":\"/vm.m_enable_pkg\",\"approver\":\"g1lw3n03x3zcqgxncq866pl8np5spd2kpdy7x0vf\",\"pkg_hash\":\"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\",\"pkg_height\":\"42\",\"pkg_path\":\"gno.land/r/demo/hello\"}],\"sequence\":\"3\"}",
+      "signature": "ddfb586e113ac34f3d9d576010cef92a099f261d00f1c4527b2dc20bed4bbd3225467b9e9b31f87cf340a907a6171ed6861fe957ee95bed54bad29bf7e8ad860"
+    },
+    {
+      "name": "reject_pkg",
+      "sign_bytes": "{\"account_number\":\"7\",\"chain_id\":\"test-chain\",\"fee\":{\"amount\":[{\"amount\":\"1000000\",\"denom\":\"ugnot\"}],\"gas\":\"2000000\"},\"memo\":\"\",\"msgs\":[{\"@type\":\"/vm.m_reject_pkg\",\"pkg_path\":\"gno.land/r/demo/hello\",\"sender\":\"g1lw3n03x3zcqgxncq866pl8np5spd2kpdy7x0vf\"}],\"sequence\":\"3\"}",
+      "signature": "89f4d13c951ddf77903bdf2080de7eba38460109f8ed3058643ee1a696b9cd09655402235d02784471ab7cc2049850755c8f297bfb48473017e0295963491153"
+    },
+    {
+      "name": "create_session",
+      "sign_bytes": "{\"account_number\":\"7\",\"chain_id\":\"test-chain\",\"fee\":{\"amount\":[{\"amount\":\"1000\",\"denom\":\"ugnot\"}],\"gas\":\"200000\"},\"memo\":\"\",\"msgs\":[{\"@type\":\"/auth.m_create_session\",\"allow_paths\":[\"vm/exec:gno.land/r/demo/boards\"],\"creator\":\"g1lw3n03x3zcqgxncq866pl8np5spd2kpdy7x0vf\",\"expires_at\":\"1798761600\",\"session_key\":{\"@type\":\"/tm.PubKeySecp256k1\",\"value\":\"AtoA6EQbXBMzBYDZiC+WsCtM6iWk2aoaVvNkwKsTnMKi\"},\"spend_limit\":\"5000000ugnot\",\"spend_period\":\"86400\"}],\"sequence\":\"3\"}",
+      "signature": "8193e5df455b70830eed41be863f0bf0696b520f5a6bb2bcfbf888a6040ed0522f601b6e33c7f3a0638f1601f9c87a66e7c69c851748f77d746c67161317ea1b"
+    },
+    {
+      "name": "create_session_minimal",
+      "sign_bytes": "{\"account_number\":\"7\",\"chain_id\":\"test-chain\",\"fee\":{\"amount\":[{\"amount\":\"1000\",\"denom\":\"ugnot\"}],\"gas\":\"200000\"},\"memo\":\"\",\"msgs\":[{\"@type\":\"/auth.m_create_session\",\"allow_paths\":[\"*\"],\"creator\":\"g1lw3n03x3zcqgxncq866pl8np5spd2kpdy7x0vf\",\"expires_at\":\"0\",\"session_key\":{\"@type\":\"/tm.PubKeySecp256k1\",\"value\":\"AtoA6EQbXBMzBYDZiC+WsCtM6iWk2aoaVvNkwKsTnMKi\"}}],\"sequence\":\"3\"}",
+      "signature": "1091330d5635b9f7d7ab597abc96fe965cf8fa04fdfbbd378124b619d98714e73da8f63500dce602baf3000bb0aeadac5736fa62c9a57275cb7d483ea86dabc0"
+    },
+    {
+      "name": "revoke_session",
+      "sign_bytes": "{\"account_number\":\"7\",\"chain_id\":\"test-chain\",\"fee\":{\"amount\":[{\"amount\":\"1000\",\"denom\":\"ugnot\"}],\"gas\":\"200000\"},\"memo\":\"\",\"msgs\":[{\"@type\":\"/auth.m_revoke_session\",\"creator\":\"g1lw3n03x3zcqgxncq866pl8np5spd2kpdy7x0vf\",\"session_key\":{\"@type\":\"/tm.PubKeySecp256k1\",\"value\":\"AtoA6EQbXBMzBYDZiC+WsCtM6iWk2aoaVvNkwKsTnMKi\"}}],\"sequence\":\"3\"}",
+      "signature": "5456334a9ac10e38200a2e54489c85817401b3f81a49fb6c504a68803ea73d5b5204b5b43f6ba3ef6fbe04133092526366e0f4facbdc2fb2ccd4c21041ac74df"
+    },
+    {
+      "name": "revoke_all_sessions",
+      "sign_bytes": "{\"account_number\":\"7\",\"chain_id\":\"test-chain\",\"fee\":{\"amount\":[{\"amount\":\"1000\",\"denom\":\"ugnot\"}],\"gas\":\"200000\"},\"memo\":\"\",\"msgs\":[{\"@type\":\"/auth.m_revoke_all_sessions\",\"creator\":\"g1lw3n03x3zcqgxncq866pl8np5spd2kpdy7x0vf\"}],\"sequence\":\"3\"}",
+      "signature": "1008bcd3881b1893aada7a6f36c11d51bb8aa674bf2a40b820d9ec304f00ff016adaa6467d0fedf404aa72cdfcc5824587a56422b5a52ee5f568442045759912"
+    },
+    {
+      "name": "addpkg",
+      "sign_bytes": "{\"account_number\":\"7\",\"chain_id\":\"test-chain\",\"fee\":{\"amount\":[{\"amount\":\"5000000\",\"denom\":\"ugnot\"}],\"gas\":\"5000000\"},\"memo\":\"\",\"msgs\":[{\"@type\":\"/vm.m_addpkg\",\"creator\":\"g1lw3n03x3zcqgxncq866pl8np5spd2kpdy7x0vf\",\"max_deposit\":\"10000000ugnot\",\"package\":{\"files\":[{\"body\":\"module = \\\"gno.land/r/demo/hello\\\"\\ngno = \\\"0.9\\\"\\n\",\"name\":\"gnomod.toml\"},{\"body\":\"package hello\\n\\nfunc Render(_ string) string { return \\\"\\u003cb\\u003ehi\\u003c/b\\u003e \\u0026 \\\\\\\"bye\\\\\\\"\\\" }\\n\",\"name\":\"hello.gno\"}],\"name\":\"hello\",\"path\":\"gno.land/r/demo/hello\",\"type\":{\"@type\":\"/gno.MemPackageType\",\"value\":\"MPUserProd\"}},\"send\":\"\"}],\"sequence\":\"3\"}",
+      "signature": "9a60f41ced99ae004b11b6f9f601d1da9a8a78093ed11f5eed064a5968a2545d387e75a4754af18ebecce207cd81de6a19eab7f56a134f0f1e2dcfbd33d7fd45"
+    },
+    {
+      "name": "run",
+      "sign_bytes": "{\"account_number\":\"7\",\"chain_id\":\"test-chain\",\"fee\":{\"amount\":[{\"amount\":\"5000000\",\"denom\":\"ugnot\"}],\"gas\":\"5000000\"},\"memo\":\"\",\"msgs\":[{\"@type\":\"/vm.m_run\",\"caller\":\"g1lw3n03x3zcqgxncq866pl8np5spd2kpdy7x0vf\",\"max_deposit\":\"\",\"package\":{\"files\":[{\"body\":\"package main\\n\\nfunc main() { println(\\\"hi\\\") }\\n\",\"name\":\"main.gno\"}],\"name\":\"main\",\"path\":\"gno.land/e/g1lw3n03x3zcqgxncq866pl8np5spd2kpdy7x0vf/run\",\"type\":{\"@type\":\"/gno.MemPackageType\",\"value\":\"MPUserProd\"}},\"send\":\"\"}],\"sequence\":\"3\"}",
+      "signature": "c46fd604a2340055cd1cde0a0a9f4d800ea137a0703c5555a980a6e15ff218b45c8fac31c14aea18f59d10b8edf0379d966805900f5a3bade7ca5a94fd166274"
+    },
+    {
+      "name": "addpkg_highlights",
+      "sign_bytes": "{\"account_number\":\"7\",\"chain_id\":\"test-chain\",\"fee\":{\"amount\":[{\"amount\":\"5000000\",\"denom\":\"ugnot\"}],\"gas\":\"5000000\"},\"memo\":\"\",\"msgs\":[{\"@type\":\"/vm.m_addpkg\",\"creator\":\"g1lw3n03x3zcqgxncq866pl8np5spd2kpdy7x0vf\",\"max_deposit\":\"\",\"package\":{\"files\":[{\"body\":\"Tips go to g1cp40l329cp2w8xzgr5v8u2r7nxmjxgq6k0da9d. Don't \\\"import\\\" this.\\n\",\"name\":\"README.md\"},{\"body\":\"module = \\\"gno.land/r/demo/tipjar\\\"\\ngno = \\\"0.9\\\"\\n\",\"name\":\"gnomod.toml\"},{\"body\":\"package tipjar\\n\\nimport \\\"strings\\\"\\n\\nfunc Render(_ string) string { return strings.Repeat(\\\"*\\\", 3) }\\n\",\"name\":\"render.gno\"},{\"body\":\"package tipjar\\n\\nimport (\\n\\t\\\"chain/banker\\\"\\n\\t\\\"chain/runtime\\\"\\n\\n\\tufmt \\\"gno.land/p/nt/ufmt\\\"\\n)\\n\\n// Formerly paid to g1cp40l329cp2w8xzgr5v8u2r7nxmjxgq6k0da9d.\\nconst treasurer = address(\\\"g1jvelajgq7ue8ns4zjj32xvxwkazww89rf6cwuc\\\")\\n\\nvar admin = address(`g1lw3n03x3zcqgxncq866pl8np5spd2kpdy7x0vf`)\\n\\n/* quote: ' */ var quote = '\\\"'\\n\\nfunc Withdraw(cur realm) string {\\n\\tif runtime.PreviousRealm().Address() != admin {\\n\\t\\tpanic(\\\"admin only\\\")\\n\\t}\\n\\tb := banker.NewBanker(banker.BankerTypeRealmSend)\\n\\tb.SendCoins(runtime.CurrentRealm().Address(), treasurer, b.GetCoins(runtime.CurrentRealm().Address()))\\n\\treturn ufmt.Sprintf(\\\"%c\\\", quote)\\n}\\n\",\"name\":\"tipjar.gno\"},{\"body\":\"package tipjar\\n\\nimport \\\"testing\\\"\\n\\nvar alice = address(\\\"g1cp40l329cp2w8xzgr5v8u2r7nxmjxgq6k0da9d\\\")\\n\\nfunc TestRender(t *testing.T) {}\\n\",\"name\":\"tipjar_test.gno\"}],\"name\":\"tipjar\",\"path\":\"gno.land/r/demo/tipjar\",\"type\":{\"@type\":\"/gno.MemPackageType\",\"value\":\"MPUserProd\"}},\"send\":\"1000000ugnot\"}],\"sequence\":\"3\"}",
+      "signature": "9223ae716ec72d73439c8276740c15856dcfce34490b4845d892b8c55fc301a009795804af15b9d1f1285dec7be1e8a7c6d972231c5e8178bc4b67156feed5da"
+    },
+    {
+      "name": "addpkg_limits",
+      "sign_bytes": "{\"account_number\":\"7\",\"chain_id\":\"test-chain\",\"fee\":{\"amount\":[{\"amount\":\"5000000\",\"denom\":\"ugnot\"}],\"gas\":\"5000000\"},\"memo\":\"mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm\",\"msgs\":[{\"@type\":\"/vm.m_addpkg\",\"creator\":\"g1lw3n03x3zcqgxncq866pl8np5spd2kpdy7x0vf\",\"max_deposit\":\"10000000ugnot\",\"package\":{\"files\":[{\"body\":\"module = \\\"gno.land/r/demo/limits\\\"\\ngno = \\\"0.9\\\"\\n\",\"name\":\"gnomod.toml\"},{\"body\":\"package limits\\n\\nimport (\\n\\t\\\"gno.land/p/demo/very/long/import/path/for/limits/number/00\\\"\\n\\t\\\"gno.land/p/demo/very/long/import/path/for/limits/number/01\\\"\\n\\t\\\"gno.land/p/demo/very/long/import/path/for/limits/number/02\\\"\\n\\t\\\"gno.land/p/demo/very/long/import/path/for/limits/number/03\\\"\\n\\t\\\"gno.land/p/demo/very/long/import/path/for/limits/number/04\\\"\\n\\t\\\"gno.land/p/demo/very/long/import/path/for/limits/number/05\\\"\\n\\t\\\"gno.land/p/demo/very/long/import/path/for/limits/number/06\\\"\\n\\t\\\"gno.land/p/demo/very/long/import/path/for/limits/number/07\\\"\\n\\t\\\"gno.land/p/demo/very/long/import/path/for/limits/number/08\\\"\\n\\t\\\"gno.land/p/demo/very/long/import/path/for/limits/number/09\\\"\\n\\t\\\"gno.land/p/demo/very/long/import/path/for/limits/number/10\\\"\\n\\t\\\"gno.land/p/demo/very/long/import/path/for/limits/number/11\\\"\\n\\t\\\"gno.land/p/demo/very/long/import/path/for/limits/number/12\\\"\\n\\t\\\"gno.land/p/demo/very/long/import/path/for/limits/number/13\\\"\\n\\t\\\"gno.land/p/demo/very/long/import/path/for/limits/number/14\\\"\\n\\t\\\"gno.land/p/demo/very/long/import/path/for/limits/number/15\\\"\\n\\t\\\"gno.land/p/demo/very/long/import/path/for/limits/number/16\\\"\\n)\\n\\nvar a0 = address(\\\"g1qfhvkz7fwwrn96a04fnrwap5qxkjlhpm6e3xx8\\\")\\nvar a1 = address(\\\"g1ef9fqqrz55javesagyz6v2r4hnyatdv603dsmn\\\")\\nvar a2 = address(\\\"g1kthljuxdpz3eq9yv8ztxhr452uhvwmrtykfd8u\\\")\\nvar a3 = address(\\\"g1p0na53pccr9zm5segqg2rcfu2kpmj7fxcyhnam\\\")\\nvar a4 = address(\\\"g1pypwds7muv9656c56dhg6cx7d64lw8z8zvx7du\\\")\\nvar a5 = address(\\\"g1yuaw0xdktm5dclnvqlnaln4z4ucnd738lyllz9\\\")\\nvar a6 = address(\\\"g1mk90d64e38yyfctnqf2plh0v9tf53svnse3nme\\\")\\nvar a7 = address(\\\"g1tew5jwdrcggp8krwvxnt4fnx34pgnq5z97s3ap\\\")\\nvar a8 = address(\\\"g15499yl6u2j7jlxkyuwc7zp8vnae2v6xkhfudzf\\\")\\n\",\"name\":\"limits.gno\"},{\"body\":\"package limits\\n\",\"name\":\"part_00.gno\"},{\"body\":\"package limits\\n\",\"name\":\"part_01.gno\"},{\"body\":\"package limits\\n\",\"name\":\"part_02.gno\"},{\"body\":\"package limits\\n\",\"name\":\"part_03.gno\"},{\"body\":\"package limits\\n\",\"name\":\"part_04.gno\"},{\"body\":\"package limits\\n\",\"name\":\"part_05.gno\"},{\"body\":\"package limits\\n\",\"name\":\"part_06.gno\"},{\"body\":\"package limits\\n\",\"name\":\"part_07.gno\"},{\"body\":\"package limits\\n\",\"name\":\"part_08.gno\"},{\"body\":\"package limits\\n\",\"name\":\"part_09.gno\"},{\"body\":\"package limits\\n\",\"name\":\"part_10.gno\"},{\"body\":\"package limits\\n\",\"name\":\"part_11.gno\"},{\"body\":\"package limits\\n\",\"name\":\"part_12.gno\"},{\"body\":\"package limits\\n\",\"name\":\"part_13.gno\"},{\"body\":\"package limits\\n\",\"name\":\"part_14.gno\"},{\"body\":\"package limits\\n\",\"name\":\"part_15.gno\"},{\"body\":\"package limits\\n\",\"name\":\"part_16.gno\"},{\"body\":\"package limits\\n\",\"name\":\"part_17.gno\"}],\"name\":\"limits\",\"path\":\"gno.land/r/demo/limits\",\"type\":{\"@type\":\"/gno.MemPackageType\",\"value\":\"MPUserAll\"}},\"send\":\"\"}],\"sequence\":\"3\"}",
+      "signature": "4255fea34e32059700da82f28084787fcaffc5c36a979066cbce8c00f3e0ce4302ba3e9e85b220d17ba6226c214b9922e34902e049f2e0b2888d8c4fe16231f2"
+    }
+  ]
+}

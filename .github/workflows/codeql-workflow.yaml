@@ -1,0 +1,44 @@
+name: CodeQL
+
+# Ledger requires CodeQL with the security-and-quality query set. Its reusable
+# workflow only builds C apps with make, so Rust code is analysed directly:
+# CodeQL extracts Rust from source, without building for the device.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+      - main
+      - develop
+  pull_request:
+    paths-ignore:
+      - 'tests/standalone/snapshots/**'
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  analyse:
+    name: Analyse (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ['rust', 'actions', 'python']
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+          queries: security-and-quality
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: /language:${{ matrix.language }}

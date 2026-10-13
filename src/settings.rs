@@ -1,6 +1,13 @@
 use ledger_device_sdk::nvm::*;
 use ledger_device_sdk::NVMData;
 
+/// Index of the switch allowing transactions that carry source code
+/// (`m_addpkg`, `m_run`), which cannot be reviewed on the device. NVM starts
+/// zeroed, so it is off until the user turns it on.
+pub const SETTING_PACKAGE_TX: usize = 0;
+
+pub const SETTINGS_STRINGS: [[&str; 2]; 1] = [["Packages", "Allow deploying and running code"]];
+
 // This is necessary to store the object in NVM and not in RAM
 const SETTINGS_SIZE: usize = 10;
 #[link_section = ".nvm_data"]
@@ -40,7 +47,6 @@ impl Settings {
     }
 
     #[allow(unused)]
-    // Not used in this boilerplate, but can be used to set a value in the settings
     pub fn set_element(&self, index: usize, value: u8) {
         let data = &raw mut DATA;
         let storage = unsafe { (*data).get_mut() };

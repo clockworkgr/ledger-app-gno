@@ -1,179 +1,205 @@
 import pytest
-from application_client.boilerplate_command_sender import (
-    BoilerplateCommandSender,
+from application_client.gno_command_sender import (
+    CLA,
+    P1,
+    P2,
     Errors,
+    GnoCommandSender,
+    InsType,
 )
-from application_client.boilerplate_response_unpacker import (
-    unpack_get_public_key_response,
-    unpack_sign_tx_response,
+from application_client.gno_response_unpacker import unpack_sign_tx_response
+from application_client.navigation import toggle_package_transactions
+from application_client.utils import (
+    check_signature_validity,
+    load_vectors,
+    reference_signature,
+    sign_bytes,
 )
-from application_client.boilerplate_transaction import Transaction
-from application_client.utils import check_signature_validity
 from ragger.error import ExceptionRAPDU
-from ragger.navigator import NavIns, NavInsID
 
-# In these tests we check the behavior of the device when asked to sign a transaction
+VECTORS = load_vectors()
+PATH = "m/" + VECTORS["path"]
+PUBKEY = bytes.fromhex(VECTORS["pubkey"])
 
-
-# In this test a transaction is sent to the device to be signed and validated on screen.
-# The transaction is short and will be sent in one chunk.
-# We will ensure that the displayed information is correct by using screenshots comparison.
-def test_sign_tx_short_tx(backend, scenario_navigator, device, navigator):
-    # Use the app interface instead of raw interface
-    client = BoilerplateCommandSender(backend)
-    # The path used for this entire test
-    path: str = "m/44'/1'/0'/0/0"
-
-    # First we need to get the public key of the device in order to build the transaction
-    rapdu = client.get_public_key(path=path)
-    _, public_key, _, _ = unpack_get_public_key_response(rapdu.data)
-
-    # Create the transaction that will be sent to the device for signing
-    transaction = Transaction(
-        nonce=1,
-        coin="CRAB",
-        value=777,
-        to="de0b295669a9fd93d5f28d9ec85e40f4cb697bae",
-        memo="For u EthDev",
-    ).serialize()
-
-    # Enable display of transaction memo (NBGL devices only)
-    if not device.is_nano:
-        navigator.navigate(
-            [
-                NavInsID.USE_CASE_HOME_SETTINGS,
-                NavIns(NavInsID.TOUCH, (200, 113)),
-                NavInsID.USE_CASE_SUB_SETTINGS_EXIT,
-            ],
-            screen_change_before_first_instruction=False,
-            screen_change_after_last_instruction=False,
-        )
-
-    # Send the sign device instruction.
-    # As it requires on-screen validation, the function is asynchronous.
-    # It will yield the result when the navigation is done
-    with client.sign_tx(path=path, transaction=transaction):
-        # Validate the on-screen request by performing the navigation appropriate for this device
-        scenario_navigator.review_approve()
-
-    # The device as yielded the result, parse it and ensure that the signature is correct
-    response = client.get_async_response().data
-    _, der_sig, _ = unpack_sign_tx_response(response)
-    assert check_signature_validity(public_key, der_sig, transaction)
+CLEAR_SIGNED = [
+    "send",
+    "send_zero_fee_memo",
+    "call",
+    "call_send_no_args",
+    "two_msgs",
+    "enable_pkg",
+    "reject_pkg",
+    "create_session",
+    "create_session_minimal",
+    "revoke_session",
+    "revoke_all_sessions",
+]
+PACKAGE_TXS = ["addpkg", "run", "addpkg_highlights"]
 
 
-# In this test a transaction is sent to the device to be signed and validated on screen.
-# The transaction is short and will be sent in one chunk
-# We will ensure that the displayed information is correct by using screenshots comparison
-# The transaction memo should not be displayed as we have not enabled it in the app settings.
-def test_sign_tx_short_tx_no_memo(backend, scenario_navigator, device):
-    if device.is_nano:
-        pytest.skip("Skipping this test for Nano devices")
-
-    # Use the app interface instead of raw interface
-    client = BoilerplateCommandSender(backend)
-    # The path used for this entire test
-    path: str = "m/44'/1'/0'/0/0"
-
-    # First we need to get the public key of the device in order to build the transaction
-    rapdu = client.get_public_key(path=path)
-    _, public_key, _, _ = unpack_get_public_key_response(rapdu.data)
-
-    # Create the transaction that will be sent to the device for signing
-    transaction = Transaction(
-        nonce=1,
-        coin="CRAB",
-        value=777,
-        to="de0b295669a9fd93d5f28d9ec85e40f4cb697bae",
-        memo="For u EthDev",
-    ).serialize()
-
-    # Send the sign device instruction.
-    # As it requires on-screen validation, the function is asynchronous.
-    # It will yield the result when the navigation is done
-    with client.sign_tx(path=path, transaction=transaction):
-        # Validate the on-screen request by performing the navigation appropriate for this device
-        scenario_navigator.review_approve()
-
-    # The device as yielded the result, parse it and ensure that the signature is correct
-    response = client.get_async_response().data
-    _, der_sig, _ = unpack_sign_tx_response(response)
-
-    assert check_signature_validity(public_key, der_sig, transaction)
+def assert_signed(name: str, signature: bytes) -> None:
+    payload = sign_bytes(VECTORS, name)
+    assert check_signature_validity(PUBKEY, signature, payload)
+    # RFC 6979 makes the signature deterministic, so it must equal gno's own.
+    assert signature == reference_signature(VECTORS, name)
 
 
-# In this test a transaction is sent to the device to be signed and validated on screen.
-# This test is mostly the same as the previous one but with different values.
-# In particular the long memo will force the transaction to be sent in multiple chunks
-# def test_sign_tx_long_tx(firmware, backend, navigator, test_name):
-def test_sign_tx_long_tx(backend, scenario_navigator, device, navigator):
-    # Use the app interface instead of raw interface
-    client = BoilerplateCommandSender(backend)
-    path: str = "m/44'/1'/0'/0/0"
-
-    rapdu = client.get_public_key(path=path)
-    _, public_key, _, _ = unpack_get_public_key_response(rapdu.data)
-
-    transaction = Transaction(
-        nonce=1,
-        coin="CRAB",
-        value=666,
-        to="de0b295669a9fd93d5f28d9ec85e40f4cb697bae",
-        memo=(
-            "This is a very long memo. "
-            "It will force the app client to send the serialized transaction to be sent in chunk. "
-            "As the maximum chunk size is 255 bytes we will make this memo greater than 255 characters. "
-            "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed non risus. Suspendisse lectus tortor, "
-            "dignissim sit amet, adipiscing nec, ultricies sed, dolor. Cras elementum ultrices diam."
-        ),
-    ).serialize()
-
-    # Enable display of transaction memo (NBGL devices only)
-    if not device.is_nano:
-        navigator.navigate(
-            [
-                NavInsID.USE_CASE_HOME_SETTINGS,
-                NavIns(NavInsID.TOUCH, (200, 113)),
-                NavInsID.USE_CASE_SUB_SETTINGS_EXIT,
-            ],
-            screen_change_before_first_instruction=False,
-            screen_change_after_last_instruction=False,
-        )
-
-    # Send the sign device instruction.
-    # As it requires on-screen validation, the function is asynchronous.
-    # It will yield the result when the navigation is done
-    with client.sign_tx(path=path, transaction=transaction):
-        # Validate the on-screen request by performing the navigation appropriate for this device
-        scenario_navigator.review_approve()
-
-    response = client.get_async_response().data
-    _, der_sig, _ = unpack_sign_tx_response(response)
-    assert check_signature_validity(public_key, der_sig, transaction)
+@pytest.mark.parametrize("name", CLEAR_SIGNED)
+def test_sign_clear(backend, scenario_navigator, name):
+    client = GnoCommandSender(backend)
+    with client.sign_tx(PATH, sign_bytes(VECTORS, name)):
+        scenario_navigator.review_approve(test_name=f"test_sign_clear_{name}")
+    assert_signed(name, unpack_sign_tx_response(client.get_async_response().data))
 
 
-# Transaction signature refused test
-# The test will ask for a transaction signature that will be refused on screen
-def test_sign_tx_refused(backend, scenario_navigator):
-    # Use the app interface instead of raw interface
-    client = BoilerplateCommandSender(backend)
-    path: str = "m/44'/1'/0'/0/0"
-
-    rapdu = client.get_public_key(path=path)
-    _, _, _, _ = unpack_get_public_key_response(rapdu.data)
-
-    transaction = Transaction(
-        nonce=1,
-        coin="CRAB",
-        value=666,
-        to="de0b295669a9fd93d5f28d9ec85e40f4cb697bae",
-        memo="This transaction will be refused by the user",
-    ).serialize()
-
+def test_sign_rejected(backend, scenario_navigator):
+    client = GnoCommandSender(backend)
     with pytest.raises(ExceptionRAPDU) as e:
-        with client.sign_tx(path=path, transaction=transaction):
+        with client.sign_tx(PATH, sign_bytes(VECTORS, "send")):
             scenario_navigator.review_reject()
-
-    # Assert that we have received a refusal
     assert e.value.status == Errors.SW_DENY
     assert len(e.value.data) == 0
+
+
+@pytest.mark.parametrize("name", PACKAGE_TXS)
+def test_sign_package_disabled_by_default(backend, name):
+    client = GnoCommandSender(backend)
+    with pytest.raises(ExceptionRAPDU) as e:
+        client.sign_tx_no_ui(PATH, sign_bytes(VECTORS, name))
+    assert e.value.status == Errors.SW_PACKAGE_TX_DISABLED
+
+
+@pytest.mark.parametrize("name", PACKAGE_TXS)
+def test_sign_package_with_setting(backend, device, navigator, scenario_navigator, name):
+    toggle_package_transactions(device, backend, navigator)
+    client = GnoCommandSender(backend)
+    with client.sign_tx(PATH, sign_bytes(VECTORS, name)):
+        scenario_navigator.review_approve_with_warning(test_name=f"test_sign_package_{name}")
+    assert_signed(name, unpack_sign_tx_response(client.get_async_response().data))
+    toggle_package_transactions(device, backend, navigator)
+
+
+def test_sign_package_at_review_limits(backend, device, navigator, scenario_navigator):
+    """A package with more imports, addresses and files than the review lists,
+    plus a long memo, still fits in device memory and signs."""
+    name = "addpkg_limits"
+    toggle_package_transactions(device, backend, navigator)
+    client = GnoCommandSender(backend)
+    with client.sign_tx(PATH, sign_bytes(VECTORS, name)):
+        scenario_navigator.review_approve_with_warning(do_comparison=False)
+    assert_signed(name, unpack_sign_tx_response(client.get_async_response().data))
+    toggle_package_transactions(device, backend, navigator)
+
+
+def test_sign_review_near_memory_limit(backend, device, navigator, scenario_navigator):
+    """Close to MAX_REVIEW_BYTES: the longest memo and import paths near their
+    limit, on top of the limits vector. Nano X has the least RAM to show it."""
+    long_dir = b"very/long/import/path/for/limits"
+    payload = (
+        sign_bytes(VECTORS, "addpkg_limits")
+        .replace(long_dir, long_dir + b"/x" * 30)
+        .replace(b'"memo":"' + b"m" * 256, b'"memo":"' + b"m" * 512)
+    )
+    toggle_package_transactions(device, backend, navigator)
+    client = GnoCommandSender(backend)
+    with client.sign_tx(PATH, payload):
+        scenario_navigator.review_approve_with_warning(do_comparison=False)
+    signature = unpack_sign_tx_response(client.get_async_response().data)
+    assert check_signature_validity(PUBKEY, signature, payload)
+    toggle_package_transactions(device, backend, navigator)
+
+
+def test_sign_package_rejected_at_warning(backend, device, navigator, scenario_navigator):
+    toggle_package_transactions(device, backend, navigator)
+    client = GnoCommandSender(backend)
+    with pytest.raises(ExceptionRAPDU) as e:
+        with client.sign_tx(PATH, sign_bytes(VECTORS, "addpkg")):
+            scenario_navigator.review_reject_with_warning()
+    assert e.value.status == Errors.SW_DENY
+    toggle_package_transactions(device, backend, navigator)
+
+
+def test_sign_wrong_signer(backend):
+    """Account 1 must not sign a message whose signer is account 0."""
+    client = GnoCommandSender(backend)
+    with pytest.raises(ExceptionRAPDU) as e:
+        client.sign_tx_no_ui("m/44'/118'/1'/0/0", sign_bytes(VECTORS, "send"))
+    assert e.value.status == Errors.SW_TX_WRONG_SIGNER
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        (b'"chain_id":', b' "chain_id":'),  # whitespace
+        (b"/bank.MsgSend", b"/bank.MsgMultiSend"),  # unregistered message
+        (b'"memo":"",', b'"memo":"","extra":"",'),  # unknown key
+        (b'"sequence":"3"', b'"sequence":"03"'),  # non-canonical number
+    ],
+)
+def test_sign_malformed(backend, mutation):
+    client = GnoCommandSender(backend)
+    payload = sign_bytes(VECTORS, "send").replace(*mutation, 1)
+    with pytest.raises(ExceptionRAPDU) as e:
+        client.sign_tx_no_ui(PATH, payload)
+    assert e.value.status == Errors.SW_TX_PARSING_FAIL
+
+
+def test_sign_truncated(backend):
+    client = GnoCommandSender(backend)
+    with pytest.raises(ExceptionRAPDU) as e:
+        client.sign_tx_no_ui(PATH, sign_bytes(VECTORS, "send")[:-1])
+    assert e.value.status == Errors.SW_TX_PARSING_FAIL
+
+
+def test_sign_value_too_long(backend):
+    client = GnoCommandSender(backend)
+    payload = sign_bytes(VECTORS, "send_zero_fee_memo").replace(
+        b'"memo":"thanks"', b'"memo":"' + b"m" * 513 + b'"', 1
+    )
+    with pytest.raises(ExceptionRAPDU) as e:
+        client.sign_tx_no_ui(PATH, payload)
+    assert e.value.status == Errors.SW_TX_TOO_LARGE
+
+
+def test_sign_without_session(backend):
+    with pytest.raises(ExceptionRAPDU) as e:
+        backend.exchange(
+            cla=CLA, ins=InsType.SIGN_TX, p1=P1.SIGN_TX_NEXT, p2=P2.SIGN_TX_LAST, data=b"{}"
+        )
+    assert e.value.status == Errors.SW_TX_NO_SESSION
+
+
+def test_sign_error_closes_session(backend):
+    """After a rejected chunk, continuing the same payload must fail."""
+    client = GnoCommandSender(backend)
+    client.sign_tx_start(PATH)
+    with pytest.raises(ExceptionRAPDU):
+        backend.exchange(
+            cla=CLA, ins=InsType.SIGN_TX, p1=P1.SIGN_TX_NEXT, p2=P2.SIGN_TX_MORE, data=b"["
+        )
+    with pytest.raises(ExceptionRAPDU) as e:
+        backend.exchange(
+            cla=CLA, ins=InsType.SIGN_TX, p1=P1.SIGN_TX_NEXT, p2=P2.SIGN_TX_LAST, data=b"{}"
+        )
+    assert e.value.status == Errors.SW_TX_NO_SESSION
+
+
+def test_sign_path_chunk_must_announce_more(backend):
+    with pytest.raises(ExceptionRAPDU) as e:
+        backend.exchange(cla=CLA, ins=InsType.SIGN_TX, p1=P1.SIGN_TX_FIRST, p2=P2.SIGN_TX_LAST)
+    assert e.value.status == Errors.SW_WRONG_P1P2
+
+
+def test_sign_large_package_streams(backend, device, navigator, scenario_navigator):
+    """A payload far larger than RAM is hashed and parsed as it streams."""
+    name = "run"
+    payload = sign_bytes(VECTORS, name).replace(
+        b'"body":"package main', b'"body":"// ' + b"x" * 60_000 + b"\\npackage main", 1
+    )
+    toggle_package_transactions(device, backend, navigator)
+    client = GnoCommandSender(backend)
+    with client.sign_tx(PATH, payload):
+        scenario_navigator.review_approve_with_warning(do_comparison=False)
+    signature = unpack_sign_tx_response(client.get_async_response().data)
+    assert check_signature_validity(PUBKEY, signature, payload)
+    toggle_package_transactions(device, backend, navigator)

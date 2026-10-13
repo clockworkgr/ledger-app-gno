@@ -1,87 +1,34 @@
-# Ledger Rust App Development Guide
+# Ledger Gno App Development Guide
 
-This is a Rust application for Ledger hardware wallets (Nano X, S+, Stax, Flex, Apex P) using the `ledger_device_sdk`.
+This is a Rust application for Ledger hardware wallets (Nano X, S+, Stax, Flex, Apex P) using the `ledger_device_sdk`. It signs gno.land (Tendermint2) transactions.
 
-## Core Development Principles
-
-**Logging**: ALWAYS add `debug_print` logs at key points, especially in complex logic flows:
-- Entry/exit of important functions
-- Before/after critical operations (crypto, parsing, validation)
-- Both success and failure paths
-- Key variable values (paths, addresses, amounts) for debugging
-- Use `ledger_device_sdk::testing::debug_print()` for all logging
+Generic Ledger rules are in `.github/instructions/` (a symlink into the `ledger-app-ai-instructions` submodule). Gno-specific rules for keys, sign bytes, signatures and clear signing are in `docs/GNO.instructions.md`; the wire protocol is in `docs/APDU.md`. Both take precedence over anything below.
 
 ## Architecture
 
-**APDU Command Flow**: The app follows a strict request-response pattern via APDU (Application Protocol Data Unit):
-1. `Comm` receives APDU with CLA=0xe0, INS, P1, P2 parameters
-2. `Instruction` enum parses APDU header into strongly-typed commands (see `src/main.rs:96-127`)
-3. Handler functions in `src/handlers/` process commands and return `Result<(), AppSW>`
-4. `AppSW` enum (status words) maps errors to specific hex codes (e.g., `0x6985` = Deny)
+- `src/main.rs` — `Instruction` parsing (all APDU parameter validation lives in `Instruction::try_from`) and the `AppSW` status words.
+- `src/handlers/` — one handler per instruction, returning `Result<CommandResponse, AppSW>`.
+- `src/tx/` — the streaming sign-doc parser. It has **no SDK dependency** (hashing is injected through the `Hashes` trait) so `host-tests/` compiles the same files for the host. Keep it that way.
+  - `json.rs` lexes the strict JSON subset amino emits; `schema.rs` lists every accepted key in sorted order; `mod.rs` validates values, builds the review and computes package fingerprints; `source.rs` pulls imports and literal addresses out of package source; `encoding.rs` holds bech32, base64, decimals, amounts and dates.
+- `src/crypto.rs` — key derivation, `g1` addresses, DER to 64-byte low-S signatures.
+- `src/bip32.rs` — accepts only `m/44'/118'/a'/0/i`.
+- `src/app_ui/`, `src/settings.rs` — NBGL screens and the NVM "Packages" switch.
 
-**Multi-chunk Transaction Handling**: Large transactions use chunked transmission (see `src/handlers/sign_tx.rs`):
-- Chunk 0: BIP32 path only
-- Chunks 1-3: Transaction data (max 510 bytes total via `MAX_TRANSACTION_LEN`)
-- P2 byte: `0x80` = more chunks, `0x00` = last chunk
-- TxContext maintains state between chunks with `raw_tx: Vec<u8>` accumulator
-
-**UI System**: NBGL (New Boilerplate Graphics Library) for all supported devices:
-- Home screen via `NbglHomeAndSettings` in `src/app_ui/menu.rs`
-- Transaction/address review via `NbglReview` with `Field` arrays
-- Device-specific glyphs loaded via `include_gif!()` macro with conditional compilation (`#[cfg(target_os = "stax")]`)
+`SIGN_TX` opens a session with a path chunk, then hashes and parses each payload chunk as it arrives; the payload is never buffered. Any error drops the session.
 
 ## Build & Test Workflow
 
-**Building** (requires Docker or VS Code extension):
 ```bash
-cargo ledger build nanox -- --features debug -Zunstable-options
-# Output: target/{device}/release/app-boilerplate-rust
+cargo ledger build nanosplus          # nanox | nanosplus | stax | flex | apex_p
+cd host-tests && cargo test           # parser, on the host
+pytest tests/standalone/ --tb=short -v --device nanosp
 ```
 
-**Testing with Ragger**:
-```bash
-pip install -r tests/requirements.txt
-pytest tests/ --tb=short -v --device {nanosp|nanox|stax|flex}
-```
-Tests use `BoilerplateCommandSender` client (see `tests/application_client/`) and `scenario_navigator` for UI automation.
-
-**Emulator** (for manual testing):
-```bash
-speculos --apdu-port 9999 --api-port 5001 --model stax target/stax/release/app-boilerplate-rust
-# UI at localhost:5001 (Nano) or via X server (Stax/Flex)
-```
-
-## Key Patterns
-
-**Error Handling**: All handlers return `Result<(), AppSW>`. Never use `unwrap()` except in `build.rs`. Map SDK errors to specific `AppSW` variants (e.g., `.map_err(|_| AppSW::KeyDeriveFail)`).
-
-**BIP32 Paths**: Encoded as length byte + 4-byte chunks. `Bip32Path` wrapper in `src/utils.rs` validates format via `TryFrom<&[u8]>`.
-
-**Cryptography**:
-- Key derivation: `Secp256k1::derive_from_path()` from `ledger_device_sdk::ecc`
-- Hashing: `Keccak256` for Ethereum-style addresses and message signing
-- Signature format: DER-encoded + parity byte appended
-
-**Transaction Deserialization**: Uses `serde-json-core` (no_std compatible). The `Tx` struct in `sign_tx.rs` shows memo/to-address pattern with `#[serde(with = "hex::serde")]` for hex-encoded fields.
-
-**Settings Storage**: NVM (non-volatile memory) via `AtomicStorage` in `src/settings.rs`. Linked to `.nvm_data` section. Settings integrate with `NbglHomeAndSettings` switch UI.
-
-**Device-Specific Code**: Pervasive use of `#[cfg(target_os = "...")]` for glyphs, icons, and UI differences between Nano (smaller screens) vs Stax/Flex (touch screens).
-
-## Integration Points
-
-**Python Test Client** (`tests/application_client/`):
-- `boilerplate_command_sender.py`: Sends APDUs via Ragger backend
-- `boilerplate_response_unpacker.py`: Parses binary responses
-- `boilerplate_transaction.py`: Creates JSON transactions matching Rust `Tx` struct
-
-**Build Script** (`build.rs`): Processes GIF icons into PNG glyphs for NBGL at compile time using `image` crate.
-
-**Metadata** (`Cargo.toml`): `[package.metadata.ledger]` section defines app name, icons, derivation paths, and flags per device.
+`tools/vectors/` renders `tests/vectors/sign_docs.json` with upstream gno; both test suites replay it, and the Ragger tests require the device's signature to equal gno's byte for byte. To add a message type, update `src/tx/schema.rs`, `tools/vectors/main.go`, `host-tests/tests/parser.rs` and `tests/standalone/test_sign_cmd.py` together.
 
 ## Critical Constraints
 
-- `#![no_std]` environment: Use `alloc::vec::Vec`, `alloc::format!`, never `std::`
-- Stack limits: Avoid deep recursion; prefer iterative patterns
-- APDU max size: ~255 bytes per chunk
-- Transaction review must call `show_status_and_home_if_needed()` to display NBGL success/failure screens
+- `#![no_std]`: use `alloc::{vec::Vec, string::String, format}`, never `std::`.
+- Treat every APDU byte as untrusted. Fail closed: reject, never truncate or default.
+- Signing and key export always go through a user-validation screen. The only blind-signing path is package messages behind the "Packages" setting.
+- Python tests build payloads from named values or the shared vectors, never raw hex literals.
