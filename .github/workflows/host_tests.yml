@@ -6,6 +6,7 @@ name: Host-side parser tests
 # what the pinned gno version produces.
 
 on:
+  workflow_call:
   workflow_dispatch:
   push:
     branches:

@@ -7,8 +7,8 @@ precedes it where listed. Integers are big-endian.
 
 | INS | Command | P1 | P2 | Data |
 | --- | --- | --- | --- | --- |
-| `0x03` | GET_VERSION | `0x00` | `0x00` | none |
-| `0x04` | GET_APP_NAME | `0x00` | `0x00` | none |
+| `0x03` | GET_VERSION | `0x00` | `0x00` | none (any data returns `WRONG_APDU_LENGTH`) |
+| `0x04` | GET_APP_NAME | `0x00` | `0x00` | none (any data returns `WRONG_APDU_LENGTH`) |
 | `0x05` | GET_PUBLIC_KEY | `0x00` silent, `0x01` confirm on screen | `0x00` | path |
 | `0x06` | SIGN_TX | `0x00` first chunk, `0x01` next chunk | `0x80` more, `0x00` last | see below |
 
@@ -54,7 +54,14 @@ returns in gno, after a path chunk:
    and, if the user approves, returns the signature.
 
 The payload has no length limit: the device hashes and parses it as it streams.
-Any error closes the session, so a retry starts again at step 1.
+A session survives only its own chunks. It closes on any error, on any command
+with a wrong CLA, INS, P1 or P2, and on any other instruction, so a retry starts
+again at step 1. The payload must be byte for byte what gno renders: strings use
+Go's `encoding/json` escaping and valid UTF-8, coins are valid tm2 coins, and the
+fee is at most one positive coin (`docs/GNO.instructions.md`).
+
+The review starts with the signing account's `g1` address, since the host
+chooses the derivation path.
 
 Response: `signature (64)`, which is `R (32) | S (32)` with S in the lower half
 of the group order, over `SHA-256(payload)`. This is the form tm2 verifies.
@@ -108,4 +115,4 @@ replace comparing the fingerprint. `docs/GNO.instructions.md` defines them.
 | `0xB00C` | TX_NO_SESSION | A payload chunk arrived without an open session |
 | `0xB00D` | TX_WRONG_SIGNER | A message is signed by an address other than the device's |
 | `0xB00E` | TX_TOO_LARGE | A displayed value or the review exceeds device limits |
-| `0xB00F` | PACKAGE_TX_DISABLED | `m_addpkg`/`m_run` while the Packages setting is off |
+| `0xB00F` | PACKAGE_TX_DISABLED | The Packages setting is off and the payload can run code: `m_addpkg`, `m_run`, or a session allowed `vm/run` or `*` |
