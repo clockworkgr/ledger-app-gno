@@ -1,0 +1,38 @@
+[package]
+name = "app-gno-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+license = "Apache-2.0"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+host-tests = { path = "../host-tests" }
+serde_json = { version = "1", features = ["preserve_order"] }
+
+# Standalone: never part of a parent workspace.
+[workspace]
+
+[[bin]]
+name = "fuzz_parser"
+path = "fuzz_targets/fuzz_parser.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_der"
+path = "fuzz_targets/fuzz_der.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_source"
+path = "fuzz_targets/fuzz_source.rs"
+test = false
+doc = false
+bench = false
