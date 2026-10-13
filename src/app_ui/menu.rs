@@ -4,7 +4,7 @@
 //! Built on `nbgl_useCaseHomeAndSettings` rather than the SDK's
 //! `NbglHomeAndSettings`, which passes the action button's descriptor from its
 //! own stack. Nano NBGL keeps that pointer and reads it again when the user
-//! scrolls to the button. Everything NBGL points to lives in statics here.
+//! scrolls to the button. Everything NBGL points to lives in static variables here.
 
 use super::show_address;
 use crate::settings::{Settings, SETTINGS_STRINGS, SETTING_PACKAGE_TX};

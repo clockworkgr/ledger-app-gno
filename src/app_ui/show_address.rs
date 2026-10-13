@@ -5,7 +5,7 @@
 //! The flow starts from a home screen callback, which runs inside
 //! `Comm::next_command`, so it cannot borrow the `Comm` that the SDK's blocking
 //! screens need. It chains NBGL's asynchronous use cases instead, keeping what
-//! they point to in statics, and ends on the home screen.
+//! they point to in static variables, and ends on the home screen.
 
 use super::menu::show_home;
 use super::APP_GLYPH;

@@ -49,7 +49,7 @@ To support a new message type, add its schema to `src/tx/schema.rs`, a case in `
 
 ### UI (NBGL)
 
-- Home + settings: `show_home()` in `src/app_ui/menu.rs`, re-shown after each flow. It calls `nbgl_useCaseHomeAndSettings` directly with descriptors in statics, because the SDK's `NbglHomeAndSettings` passes the action button's descriptor from its stack and Nano NBGL keeps that pointer.
+- Home + settings: `show_home()` in `src/app_ui/menu.rs`, re-shown after each flow. It calls `nbgl_useCaseHomeAndSettings` directly with descriptors in static variables, because the SDK's `NbglHomeAndSettings` passes the action button's descriptor from its stack and Nano NBGL keeps that pointer.
 - "Show address" (`src/app_ui/show_address.rs`) starts from the home screen's button, inside `Comm::next_command`, so it chains NBGL's asynchronous use cases (keypad, address review, status) instead of the SDK's blocking screens, which need the `Comm`.
 - After each command, `show_status_and_home_if_needed` in `src/main.rs` shows the NBGL success/failure page and returns home.
 - Icons are derived from the gnolang GitHub avatar, one per device size, in the same formats as the boilerplate's (1-bit for Nano and Apex P, 16-level grey on white for Stax and Flex).
