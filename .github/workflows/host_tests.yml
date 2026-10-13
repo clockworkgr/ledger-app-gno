@@ -21,12 +21,14 @@ jobs:
   parser:
     name: Parser tests
     runs-on: ubuntu-latest
+    env:
+      # rust-toolchain.toml pins the device nightly, which honours the root
+      # config's build-std and then clashes with the host's std. Stable cargo
+      # ignores [unstable], so the host tests use it.
+      RUSTUP_TOOLCHAIN: stable
     steps:
       - uses: actions/checkout@v6
-      # rust-toolchain.toml pins the device toolchain, and the root cargo config
-      # builds core/alloc from source; host-tests inherits both.
-      - run: rustup component add rustfmt rust-src
-        working-directory: host-tests
+      - run: rustup toolchain install stable --profile minimal --component rustfmt
       - run: cargo fmt --check
         working-directory: host-tests
       - run: cargo test

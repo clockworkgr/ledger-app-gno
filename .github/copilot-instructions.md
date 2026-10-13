@@ -20,7 +20,7 @@ Generic Ledger rules are in `.github/instructions/` (a symlink into the `ledger-
 
 ```bash
 cargo ledger build nanosplus          # nanox | nanosplus | stax | flex | apex_p
-cd host-tests && cargo test           # parser, on the host
+cd host-tests && cargo +stable test   # parser, on the host (stable: see README)
 pytest tests/standalone/ --tb=short -v --device nanosp
 ```
 

@@ -66,7 +66,7 @@ The generic embedded/Rust rules are imported above; the points below are this ap
 
 ## Tests
 
-- `host-tests/` — `cargo test` on the host (it has its own `.cargo/config.toml` that undoes the device target). Fast; run it first for any `src/tx` change.
+- `host-tests/` — `cargo +stable test` on the host (it has its own `.cargo/config.toml` that undoes the device target; stable because the pinned nightly would apply the root config's `build-std`). Fast; run it first for any `src/tx` change.
 - `tools/vectors/` — Go program rendering `tests/vectors/sign_docs.json` with upstream gno. Regenerate with `go run . > ../../tests/vectors/sign_docs.json`.
 - `tests/application_client/` — Python `GnoCommandSender`, response unpacker, vector loading, and `navigation.py` for toggling settings.
 - `tests/standalone/` — Ragger suite. Signatures are checked against both the public key and gno's own signature for the same payload.

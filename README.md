@@ -107,8 +107,10 @@ This command will build the app for the Nano X, but you can use any supported de
 The sign-doc parser (`src/tx`) has no device dependency and is tested on the host against
 payloads rendered by upstream gno (`tests/vectors/sign_docs.json`, produced by `tools/vectors`):
 ```bash
-cd host-tests && cargo test
+cd host-tests && cargo +stable test
 ```
+Use a stable toolchain: `rust-toolchain.toml` pins the device nightly, which would apply the root
+config's `build-std` to the host build and fail.
 #### Ragger functional tests
 Functional tests use Ledger's [Ragger](https://github.com/LedgerHQ/ragger) framework, in `tests/standalone/`.
 
