@@ -23,8 +23,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      # rust-toolchain.toml pins the device toolchain; host-tests uses it too.
-      - run: rustup component add rustfmt
+      # rust-toolchain.toml pins the device toolchain, and the root cargo config
+      # builds core/alloc from source; host-tests inherits both.
+      - run: rustup component add rustfmt rust-src
         working-directory: host-tests
       - run: cargo fmt --check
         working-directory: host-tests
