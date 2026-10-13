@@ -141,12 +141,16 @@ ledger-cosmos's Zondax protocol (CLA `0x55`). gnokey reaches Ledger through `led
 ## Limits
 
 The payload itself is unbounded. What is bounded, in `src/tx/mod.rs`, is what has to be kept for
-the review: 512 bytes per displayed value, 4096 bytes of review text, 64 fields, 8 messages, and
+the review: 512 bytes per displayed value, 3072 bytes of review text, 56 fields, 8 messages, and
 128 bytes per import path. Exceeding any of them returns `TX_TOO_LARGE`. Values are never
-truncated. The heap is raised to 16 KiB (`.cargo/config.toml`) because NBGL copies the review
-once more while showing it. That leaves Nano X about 11 KiB of stack, so the signing session
-(parser included) is boxed and freed before the review is shown. `test_sign_review_near_memory_limit`
-guards this on every device.
+truncated.
+
+The review limits come from Nano X. NBGL copies the review again (C strings plus per-field
+descriptors) while showing it, and Nano X cannot raise its heap above 16 KiB without starving its
+stack, so the signing session is also boxed and freed before the review is shown. The other
+devices get a 24 KiB heap (`.cargo/config.toml`). `test_sign_review_near_memory_limit` signs a
+review at the limits on every device. Ledger's build always takes the latest `ledger_device_sdk`,
+so rerun it after an SDK bump: 1.41 needs noticeably more heap per field than 1.37 did.
 
 Package lists are the one place where the review shows fewer items than exist: at most 16
 imports, 8 addresses and 16 file names. Refusing larger packages would make them undeployable,

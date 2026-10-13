@@ -16,6 +16,7 @@ build-std = ["core", "alloc"]
 build-std-features = ["compiler-builtins-mem"]
 
 # Authorized values are [2048, 4096, 8192, 16384, 24576]. The largest review
-# (MAX_REVIEW_BYTES in src/tx/mod.rs) is held twice while NBGL shows it.
+# (MAX_REVIEW_BYTES in src/tx/mod.rs) is held twice while NBGL shows it. Nano X
+# cannot go above 16 KiB without starving its stack.
 [env]
-HEAP_SIZE = "16384"
+HEAP_SIZE = "nanosplus: 24576, nanox: 16384, stax: 24576, flex: 24576, apex_p: 24576"

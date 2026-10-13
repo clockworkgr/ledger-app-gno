@@ -20,3 +20,6 @@ jobs:
   misspell:
     name: Check misspellings
     uses: LedgerHQ/ledger-app-workflows/.github/workflows/reusable_spell_check.yml@v1
+    with:
+      # Checksums, snapshots and gno-rendered payloads are not prose.
+      skip_path: "./tools/vectors/go.sum,./tests/standalone/snapshots,./tests/vectors"

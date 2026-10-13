@@ -91,15 +91,20 @@ def test_sign_package_at_review_limits(backend, device, navigator, scenario_navi
     toggle_package_transactions(device, backend, navigator)
 
 
-def test_sign_review_near_memory_limit(backend, device, navigator, scenario_navigator):
-    """Close to MAX_REVIEW_BYTES: the longest memo and import paths near their
-    limit, on top of the limits vector. Nano X has the least RAM to show it."""
+def near_limit_payload(import_padding: int) -> bytes:
+    """The limits vector with the longest memo and longer import paths."""
     long_dir = b"very/long/import/path/for/limits"
-    payload = (
+    return (
         sign_bytes(VECTORS, "addpkg_limits")
-        .replace(long_dir, long_dir + b"/x" * 30)
+        .replace(long_dir, long_dir + b"/x" * import_padding)
         .replace(b'"memo":"' + b"m" * 256, b'"memo":"' + b"m" * 512)
     )
+
+
+def test_sign_review_near_memory_limit(backend, device, navigator, scenario_navigator):
+    """Within a few bytes of MAX_REVIEW_BYTES and one field of MAX_REVIEW_FIELDS.
+    Nano X has the least heap to show it."""
+    payload = near_limit_payload(7)
     toggle_package_transactions(device, backend, navigator)
     client = GnoCommandSender(backend)
     with client.sign_tx(PATH, payload):
@@ -107,6 +112,14 @@ def test_sign_review_near_memory_limit(backend, device, navigator, scenario_navi
     signature = unpack_sign_tx_response(client.get_async_response().data)
     assert check_signature_validity(PUBKEY, signature, payload)
     toggle_package_transactions(device, backend, navigator)
+
+
+def test_sign_review_over_limit_is_refused(backend):
+    """Past MAX_REVIEW_BYTES the device refuses rather than truncating."""
+    client = GnoCommandSender(backend)
+    with pytest.raises(ExceptionRAPDU) as e:
+        client.sign_tx_no_ui(PATH, near_limit_payload(30))
+    assert e.value.status == Errors.SW_TX_TOO_LARGE
 
 
 def test_sign_package_rejected_at_warning(backend, device, navigator, scenario_navigator):

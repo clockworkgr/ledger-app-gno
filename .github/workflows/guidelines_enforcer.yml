@@ -17,6 +17,12 @@ on:
       - develop
   pull_request:
 
+# The reusable workflow declares these; a caller must grant at least as much.
+permissions:
+  contents: read
+  actions: write
+  pull-requests: write
+
 jobs:
   guidelines_enforcer:
     name: Call Ledger guidelines_enforcer

@@ -9,6 +9,7 @@ pub mod json;
 mod schema;
 pub mod source;
 
+use alloc::borrow::Cow;
 use alloc::string::String;
 use alloc::vec::Vec;
 
@@ -19,9 +20,10 @@ use source::{Findings, Scanner};
 
 /// Longest string value kept in RAM for validation or display.
 pub const MAX_VALUE_LEN: usize = 512;
-/// Upper bound on the review's total text, which NBGL copies once more.
-pub const MAX_REVIEW_BYTES: usize = 4096;
-pub const MAX_REVIEW_FIELDS: usize = 64;
+/// Upper bound on the review's total text, which NBGL copies once more. With
+/// `MAX_REVIEW_FIELDS`, sized so the largest review fits Nano X's 16 KiB heap.
+pub const MAX_REVIEW_BYTES: usize = 3072;
+pub const MAX_REVIEW_FIELDS: usize = 56;
 pub const MAX_MESSAGES: usize = 8;
 /// Files named in a package review; the rest are counted.
 pub const MAX_LISTED_FILES: usize = 16;
@@ -65,7 +67,8 @@ pub trait Hashes {
 }
 
 pub struct ReviewField {
-    pub name: String,
+    /// Almost always a static label, so it costs no heap.
+    pub name: Cow<'static, str>,
     pub value: String,
     /// Order within its message; see `rank` constants in `schema`.
     rank: u16,
@@ -199,7 +202,7 @@ impl<H: Hashes> Parser<H> {
             for f in self.review.fields.iter_mut() {
                 if f.rank == schema::rank::TYPE {
                     n += 1;
-                    f.name = alloc::format!("Message {}", n);
+                    f.name = Cow::Owned(alloc::format!("Message {}", n));
                 }
             }
         }
@@ -227,15 +230,26 @@ impl<H: Hashes> Parser<H> {
         ))
     }
 
-    fn push(&mut self, name: &str, value: String, rank: u16) -> Result<(), Error> {
-        self.push_owned(String::from(name), value, rank)
+    fn push(&mut self, name: &'static str, value: String, rank: u16) -> Result<(), Error> {
+        self.push_field(Cow::Borrowed(name), value, rank)
     }
 
     fn push_owned(&mut self, name: String, value: String, rank: u16) -> Result<(), Error> {
+        self.push_field(Cow::Owned(name), value, rank)
+    }
+
+    fn push_field(
+        &mut self,
+        name: Cow<'static, str>,
+        mut value: String,
+        rank: u16,
+    ) -> Result<(), Error> {
         self.review_bytes += name.len() + value.len() + 2;
         if self.review_bytes > MAX_REVIEW_BYTES || self.review.fields.len() == MAX_REVIEW_FIELDS {
             return Err(Error::ReviewTooLarge);
         }
+        // Values grow byte by byte; the review is held until approval.
+        value.shrink_to_fit();
         self.review.fields.push(ReviewField { name, value, rank });
         Ok(())
     }

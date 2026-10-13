@@ -88,9 +88,7 @@ class GnoCommandSender:
         """Sends every chunk but the last, which the caller sends."""
         chunks = split_message(sign_bytes, MAX_APDU_LEN)
         for chunk in chunks[:-1]:
-            self.backend.exchange(
-                cla=CLA, ins=InsType.SIGN_TX, p1=P1.SIGN_TX_NEXT, p2=P2.SIGN_TX_MORE, data=chunk
-            )
+            self.backend.exchange(cla=CLA, ins=InsType.SIGN_TX, p1=P1.SIGN_TX_NEXT, p2=P2.SIGN_TX_MORE, data=chunk)
         return chunks
 
     @contextmanager
@@ -106,9 +104,7 @@ class GnoCommandSender:
         """Signs a payload expected to be rejected before any screen is shown."""
         self.sign_tx_start(path)
         last = self.sign_tx_chunks(sign_bytes)[-1]
-        return self.backend.exchange(
-            cla=CLA, ins=InsType.SIGN_TX, p1=P1.SIGN_TX_NEXT, p2=P2.SIGN_TX_LAST, data=last
-        )
+        return self.backend.exchange(cla=CLA, ins=InsType.SIGN_TX, p1=P1.SIGN_TX_NEXT, p2=P2.SIGN_TX_LAST, data=last)
 
     def get_async_response(self) -> RAPDU | None:
         return self.backend.last_async_response

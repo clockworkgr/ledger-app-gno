@@ -55,7 +55,7 @@ fn parse(address: &str, doc: &str) -> Result<Review, Error> {
 fn fields(r: &Review) -> Vec<(String, String)> {
     r.fields
         .iter()
-        .map(|f| (f.name.clone(), f.value.clone()))
+        .map(|f| (f.name.to_string(), f.value.clone()))
         .collect()
 }
 
@@ -689,16 +689,23 @@ fn encoding_helpers() {
 
 #[test]
 fn review_near_memory_limit_fits() {
-    // Mirrors test_sign_review_near_memory_limit in the Ragger suite.
+    // Mirrors near_limit_payload in the Ragger suite.
     let v = vectors();
     let dir = "very/long/import/path/for/limits";
-    let doc = case(&v, "addpkg_limits")
-        .replace(dir, &format!("{dir}{}", "/x".repeat(30)))
-        .replace(
-            &format!("\"memo\":\"{}", "m".repeat(256)),
-            &format!("\"memo\":\"{}", "m".repeat(512)),
-        );
-    let r = parse(&v.address, &doc).unwrap();
+    let near_limit = |padding: usize| {
+        case(&v, "addpkg_limits")
+            .replace(dir, &format!("{dir}{}", "/x".repeat(padding)))
+            .replace(
+                &format!("\"memo\":\"{}", "m".repeat(256)),
+                &format!("\"memo\":\"{}", "m".repeat(512)),
+            )
+    };
+    assert_eq!(
+        parse(&v.address, &near_limit(30)).err(),
+        Some(Error::ReviewTooLarge)
+    );
+    let r = parse(&v.address, &near_limit(7)).unwrap();
+    assert!(r.fields.len() >= host_tests::tx::MAX_REVIEW_FIELDS - 1);
     let bytes: usize = r
         .fields
         .iter()
