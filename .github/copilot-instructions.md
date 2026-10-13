@@ -22,6 +22,7 @@ Generic Ledger rules are in `.github/instructions/` (a symlink into the `ledger-
 cargo ledger build nanosplus          # nanox | nanosplus | stax | flex | apex_p
 cd host-tests && cargo +stable test   # parser, on the host (stable: see README)
 pytest tests/standalone/ --tb=short -v --device nanosp
+./fuzz/run.sh fuzz_parser 300         # fuzzing, built outside the device cargo config
 ```
 
 `tools/vectors/` renders `tests/vectors/sign_docs.json` with upstream gno; both test suites replay it, and the Ragger tests require the device's signature to equal gno's byte for byte. To add a message type, update `src/tx/schema.rs`, `tools/vectors/main.go`, `host-tests/tests/parser.rs` and `tests/standalone/test_sign_cmd.py` together.

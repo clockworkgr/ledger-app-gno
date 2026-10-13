@@ -111,6 +111,16 @@ cd host-tests && cargo +stable test
 ```
 Use a stable toolchain: `rust-toolchain.toml` pins the device nightly, which would apply the root
 config's `build-std` to the host build and fail.
+#### Fuzzing
+`fuzz/` holds [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz) targets for the sign-doc parser
+(checked against a Go-style JSON re-encoder and for chunking-independent results), the DER signature
+conversion and the package source scanner. They run in CI through ClusterFuzzLite. To run one
+locally (needs rustup, a nightly toolchain and `cargo install cargo-fuzz`):
+```bash
+./fuzz/run.sh fuzz_parser 300        # target, seconds; also fuzz_der, fuzz_source
+```
+The script builds from a copy outside the repository, because `.cargo/config.toml` configures the
+device build. The corpus and any crash inputs are kept in `fuzz/work/`.
 #### Ragger functional tests
 Functional tests use Ledger's [Ragger](https://github.com/LedgerHQ/ragger) framework, in `tests/standalone/`.
 
@@ -185,6 +195,9 @@ The following workflows are executed in [GitHub Actions](https://github.com/feat
 * End-to-end tests with the [Speculos](https://github.com/LedgerHQ/speculos) emulator and [ragger](https://github.com/LedgerHQ/ragger) (see [tests/](tests/))
 * Host-side parser tests, and a check that `tests/vectors` still matches the pinned gno version
 * CodeQL analysis (`security-and-quality` queries) of the Rust sources, workflows and test client
+* ClusterFuzzLite fuzzing of the parser, signature conversion and source scanner (pull requests,
+  pushes and a weekly long run)
+* `cargo audit` of the app's and the host tests' dependencies
 * Various lint checks :
   * Source code lint checks with `cargo fmt`
   * Python functional test code lint checks with `pylint` and `mypy`

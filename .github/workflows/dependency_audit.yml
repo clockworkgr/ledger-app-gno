@@ -1,0 +1,38 @@
+name: Dependency audit
+
+# Ledger's Rust rules require dependencies to be checked with cargo audit.
+# Covers the app (whose ledger_device_sdk is updated by Ledger's build, hence
+# the update first) and the host-side test crates.
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - master
+      - main
+      - develop
+  schedule:
+    - cron: '0 6 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: cargo audit
+    runs-on: ubuntu-latest
+    env:
+      # Stable cargo ignores the device-only [unstable] settings in
+      # .cargo/config.toml; the lockfiles are all it needs.
+      RUSTUP_TOOLCHAIN: stable
+    steps:
+      - uses: actions/checkout@v7
+      - run: rustup toolchain install stable --profile minimal
+      - run: cargo install cargo-audit --locked
+      - name: App, with the SDK version Ledger's build uses
+        run: |
+          cargo update ledger_device_sdk
+          cargo audit --deny warnings
+      - name: Host tests
+        run: cargo audit --deny warnings --file host-tests/Cargo.lock

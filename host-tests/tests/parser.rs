@@ -924,3 +924,20 @@ fn escaped_file_names_are_charged_before_they_are_kept() {
         Some(Error::ReviewTooLarge)
     );
 }
+
+#[test]
+fn errors_do_not_depend_on_chunking() {
+    // Found by fuzz_parser: an over-long memo followed by an invalid byte.
+    let v = vectors();
+    let doc = memo_doc(
+        &v,
+        &format!("{}\u{1}", "m".repeat(host_tests::tx::MAX_VALUE_LEN + 10)),
+    );
+    for chunk in [1, 7, 255, doc.len()] {
+        assert_eq!(
+            parse_chunked(&v.address, doc.as_bytes(), chunk).err(),
+            Some(Error::ValueTooLong),
+            "chunk {chunk}"
+        );
+    }
+}

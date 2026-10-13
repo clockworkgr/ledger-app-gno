@@ -104,7 +104,14 @@ impl Lexer {
                     if self.utf8_need == 0 && (b == b'"' || b == b'\\') {
                         break;
                     }
-                    self.raw_string_byte(b)?;
+                    if let Err(e) = self.raw_string_byte(b) {
+                        // Report errors in stream order, whatever the chunking:
+                        // the bytes before this one may already be too many.
+                        if run > 0 {
+                            sink.string_bytes(&data[i..i + run])?;
+                        }
+                        return Err(e);
+                    }
                     run += 1;
                 }
                 if run > 0 {

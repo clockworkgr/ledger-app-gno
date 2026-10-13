@@ -32,6 +32,8 @@ jobs:
       - run: rustup toolchain install stable --profile minimal --component rustfmt
       - run: cargo fmt --check
         working-directory: host-tests
+      - run: cargo fmt --check
+        working-directory: fuzz
       - run: cargo test
         working-directory: host-tests
 
