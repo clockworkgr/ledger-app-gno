@@ -49,6 +49,9 @@ pub enum Leaf {
         empty: Option<&'static str>,
         rank: u16,
     },
+    /// A VM message's storage-deposit cap. gno only reads its `ugnot` amount
+    /// and falls back to the chain default when that is zero.
+    MaxDeposit,
     SpendLimit,
     SpendPeriod,
     Text(&'static str, u16),
@@ -135,11 +138,7 @@ const SEND: Node = Node::Str(Leaf::Coins {
     empty: Some("None"),
     rank: rank::SEND,
 });
-const MAX_DEPOSIT: Node = Node::Str(Leaf::Coins {
-    label: "Max deposit",
-    empty: Some("Chain default"),
-    rank: rank::MAX_DEPOSIT,
-});
+const MAX_DEPOSIT: Node = Node::Str(Leaf::MaxDeposit);
 const SIGNER: Node = Node::Str(Leaf::Signer);
 const SESSION_KEY: Node = Node::Typed(Typed::PubKey);
 

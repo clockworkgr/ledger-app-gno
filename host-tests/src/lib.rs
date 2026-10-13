@@ -8,6 +8,9 @@ extern crate alloc;
 #[path = "../../src/tx/mod.rs"]
 pub mod tx;
 
+#[path = "../../src/sig.rs"]
+pub mod sig;
+
 use sha2::Digest;
 
 pub struct HostSha256(sha2::Sha256);

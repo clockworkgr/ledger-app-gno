@@ -37,6 +37,11 @@ impl TxContext {
     pub fn finished(&self) -> bool {
         self.review_finished
     }
+
+    /// Drops any half-received transaction.
+    pub fn close_session(&mut self) {
+        self.session = None;
+    }
 }
 
 fn parse_error(e: tx::Error) -> AppSW {
@@ -93,7 +98,7 @@ pub fn handler_sign_tx<'a>(
     let comm = command.into_comm();
     ctx.review_finished = true;
 
-    if review.blind && Settings.get_element(SETTING_PACKAGE_TX) == 0 {
+    if review.runs_code && Settings.get_element(SETTING_PACKAGE_TX) == 0 {
         ui_display_package_disabled(comm);
         return Err(AppSW::PackageTxDisabled);
     }

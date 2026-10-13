@@ -30,39 +30,30 @@ pub struct Findings {
 }
 
 impl Findings {
-    fn add_import(&mut self, path: &[u8]) {
+    /// Records an import path; returns whether it was new and listed.
+    pub fn add_import(&mut self, path: &[u8]) -> bool {
         if self.imports.iter().any(|p| p.as_slice() == path) {
-            return;
+            return false;
         }
         if self.imports.len() == MAX_IMPORTS {
             self.more_imports = true;
-            return;
+            return false;
         }
         self.imports.push(path.to_vec());
+        true
     }
 
-    fn add_address(&mut self, addr: &[u8; ADDRESS_LEN]) {
+    /// Records an address; returns whether it was new and listed.
+    pub fn add_address(&mut self, addr: &[u8; ADDRESS_LEN]) -> bool {
         if self.addresses.contains(addr) {
-            return;
+            return false;
         }
         if self.addresses.len() == MAX_ADDRESSES {
             self.more_addresses = true;
-            return;
+            return false;
         }
         self.addresses.push(*addr);
-    }
-
-    /// Folds one file's findings into the package's.
-    pub fn merge(&mut self, file: Findings) {
-        for path in &file.imports {
-            self.add_import(path);
-        }
-        for addr in &file.addresses {
-            self.add_address(addr);
-        }
-        self.more_imports |= file.more_imports;
-        self.more_addresses |= file.more_addresses;
-        self.long_import |= file.long_import;
+        true
     }
 }
 

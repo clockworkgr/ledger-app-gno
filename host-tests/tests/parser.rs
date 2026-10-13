@@ -52,8 +52,11 @@ fn parse(address: &str, doc: &str) -> Result<Review, Error> {
     parse_chunked(address, doc.as_bytes(), 255)
 }
 
+/// The review without its leading Signer field, which every review starts
+/// with (see `every_review_starts_with_the_signer`).
 fn fields(r: &Review) -> Vec<(String, String)> {
-    r.fields
+    assert_eq!(r.fields[0].name, "Signer");
+    r.fields[1..]
         .iter()
         .map(|f| (f.name.to_string(), f.value.clone()))
         .collect()
@@ -246,7 +249,7 @@ fn sessions() {
         f[..7],
         pairs(&[
             ("Type", "Create session"),
-            ("Warning", "Session may sign any message type"),
+            ("Warning", "Session may sign any message, scripts included"),
             ("Warning", "Session never expires"),
             ("Session key", &session_key),
             ("Allowed", "*"),
@@ -632,7 +635,7 @@ fn rejects_hostile_payloads() {
 fn display_escapes_unprintable_bytes() {
     let v = vectors();
     let doc = case(&v, "send_zero_fee_memo")
-        .replace("\"memo\":\"thanks\"", "\"memo\":\"a\\nb\\\\c\\u00e9\"");
+        .replace("\"memo\":\"thanks\"", "\"memo\":\"a\\nb\\\\c\u{e9}\"");
     let f = fields(&parse(&v.address, &doc).unwrap());
     let memo = f.iter().find(|(n, _)| n == "Memo").unwrap();
     assert_eq!(memo.1, "a\\x0ab\\\\c\\xc3\\xa9");
@@ -666,10 +669,10 @@ fn encoding_helpers() {
     encoding::write_amount(&mut s, 1_000_000, b"ugnot").unwrap();
     assert_eq!(s, "1 GNOT");
     assert_eq!(
-        encoding::format_coins(b"10ugnot,5/gno.land/r/demo/foo:bar")
+        encoding::format_coins(b"5/gno.land/r/demo/foo:bar,10ugnot")
             .unwrap()
             .unwrap(),
-        "0.00001 GNOT, 5 /gno.land/r/demo/foo:bar"
+        "5 /gno.land/r/demo/foo:bar, 0.00001 GNOT"
     );
     assert_eq!(encoding::format_utc(0), "1970-01-01 00:00:00 UTC");
     assert_eq!(encoding::format_utc(951_782_400), "2000-02-29 00:00:00 UTC");
@@ -704,7 +707,7 @@ fn review_near_memory_limit_fits() {
         parse(&v.address, &near_limit(30)).err(),
         Some(Error::ReviewTooLarge)
     );
-    let r = parse(&v.address, &near_limit(7)).unwrap();
+    let r = parse(&v.address, &near_limit(5)).unwrap();
     assert!(r.fields.len() >= host_tests::tx::MAX_REVIEW_FIELDS - 1);
     let bytes: usize = r
         .fields
@@ -712,4 +715,212 @@ fn review_near_memory_limit_fits() {
         .map(|f| f.name.len() + f.value.len() + 2)
         .sum();
     assert!(bytes > host_tests::tx::MAX_REVIEW_BYTES * 9 / 10, "{bytes}");
+}
+
+#[test]
+fn every_review_starts_with_the_signer() {
+    let v = vectors();
+    for (name, doc) in &v.cases {
+        let r = parse(&v.address, doc).unwrap();
+        assert_eq!(r.fields[0].name, "Signer", "{name}");
+        assert_eq!(r.fields[0].value, v.address, "{name}");
+    }
+}
+
+fn memo_doc(v: &Vectors, memo_json: &str) -> String {
+    case(v, "send_zero_fee_memo")
+        .replace("\"memo\":\"thanks\"", &format!("\"memo\":\"{memo_json}\""))
+}
+
+#[test]
+fn strings_must_be_encoded_as_gno_encodes_them() {
+    let v = vectors();
+    // gno's own rendering of every escaped class is accepted and displayed
+    // byte for byte.
+    let doc = case(&v, "memo_escapes");
+    let decoded: Value = serde_json::from_str(&doc).unwrap();
+    let mut expected = String::new();
+    encoding::push_display(&mut expected, decoded["memo"].as_str().unwrap().as_bytes());
+    let f = fields(&parse(&v.address, &doc).unwrap());
+    assert_eq!(f.iter().find(|(n, _)| n == "Memo").unwrap().1, expected);
+
+    // Other spellings of the same characters would be re-rendered differently
+    // by gno, so the signature could never verify: refuse them.
+    for memo in [
+        "\\/",
+        "\\u0041",
+        "\\u001F",
+        "\\u0008",
+        "\\u000a",
+        "\\ud83d\\ude00",
+        "\\ufffd",
+        "<",
+        "&",
+        "\u{2028}",
+        "\u{1}",
+    ] {
+        assert_eq!(
+            parse(&v.address, &memo_doc(&v, memo)).err(),
+            Some(Error::InvalidEncoding),
+            "{memo:?}"
+        );
+    }
+    for memo in ["\\u001f", "\\b", "\\u003c", "\\u2029", "\u{e9}\u{1f600}"] {
+        assert!(parse(&v.address, &memo_doc(&v, memo)).is_ok(), "{memo:?}");
+    }
+
+    // Raw bytes must be valid UTF-8: gno replaces anything else.
+    let base = memo_doc(&v, "MEMO");
+    let at = base.find("MEMO").unwrap();
+    for bad in [
+        &[0xffu8][..],
+        &[0xc0, 0x80],
+        &[0xed, 0xa0, 0x80],
+        &[0xe2, 0x82],
+        &[0xf5, 0x80, 0x80, 0x80],
+    ] {
+        let mut doc = base.as_bytes()[..at].to_vec();
+        doc.extend_from_slice(bad);
+        doc.extend_from_slice(&base.as_bytes()[at + 4..]);
+        for chunk in [1, 255] {
+            assert_eq!(
+                parse_chunked(&v.address, &doc, chunk).err(),
+                Some(Error::InvalidEncoding),
+                "{bad:x?} chunk {chunk}"
+            );
+        }
+    }
+}
+
+#[test]
+fn coins_must_be_valid_tm2_coins() {
+    let v = vectors();
+    let send = |amount: &str| case(&v, "send").replace("1234567ugnot", amount);
+    for bad in [
+        "0ugnot",
+        "1ugnot,2ugnot",
+        "1zzz,1ugnot",
+        "01ugnot",
+        "1ugnot,",
+    ] {
+        assert_eq!(
+            parse(&v.address, &send(bad)).err(),
+            Some(Error::InvalidCoins),
+            "{bad}"
+        );
+    }
+    let f = fields(&parse(&v.address, &send("1ugnot,2zzz")).unwrap());
+    assert!(f.contains(&("Amount".into(), "0.000001 GNOT, 2 zzz".into())));
+}
+
+#[test]
+fn fee_is_one_positive_coin() {
+    let v = vectors();
+    let coin = "{\"amount\":\"1000\",\"denom\":\"ugnot\"}";
+    let zero = case(&v, "send").replace(coin, "{\"amount\":\"0\",\"denom\":\"ugnot\"}");
+    assert_eq!(parse(&v.address, &zero).err(), Some(Error::InvalidCoins));
+    let two = case(&v, "send").replace(coin, &format!("{coin},{coin}"));
+    assert_eq!(parse(&v.address, &two).err(), Some(Error::InvalidCoins));
+
+    // A second coin is refused as soon as it is read, so an endless fee array
+    // cannot grow the review before the payload ends.
+    let mut p = Parser::<HostHashes>::new(signer(&v.address));
+    let prefix = format!(
+        "{{\"account_number\":\"7\",\"chain_id\":\"test-chain\",\"fee\":{{\"amount\":[{coin},{coin}"
+    );
+    assert_eq!(p.feed(prefix.as_bytes()).err(), Some(Error::InvalidCoins));
+}
+
+#[test]
+fn max_deposit_is_an_explicit_ugnot_cap_or_the_default() {
+    let v = vectors();
+    let call = case(&v, "call");
+    assert!(call.contains("\"max_deposit\":\"\""));
+    // gno ignores every denom but ugnot and falls back to the chain default,
+    // so showing these as caps would misstate what the chain enforces.
+    for bad in ["1foo", "0ugnot", "1ugnot,1zzz", "ugnot"] {
+        let doc = call.replace(
+            "\"max_deposit\":\"\"",
+            &format!("\"max_deposit\":\"{bad}\""),
+        );
+        assert_eq!(
+            parse(&v.address, &doc).err(),
+            Some(Error::InvalidCoins),
+            "{bad}"
+        );
+    }
+    let doc = call.replace("\"max_deposit\":\"\"", "\"max_deposit\":\"2500000ugnot\"");
+    let f = fields(&parse(&v.address, &doc).unwrap());
+    assert!(f.contains(&("Max deposit".into(), "2.5 GNOT".into())));
+}
+
+#[test]
+fn sessions_that_can_run_code_need_the_packages_setting() {
+    let v = vectors();
+    let r = parse(&v.address, &case(&v, "create_session_run")).unwrap();
+    assert!(r.runs_code && !r.blind);
+    let f = fields(&r);
+    assert_eq!(
+        f[..2],
+        pairs(&[
+            ("Type", "Create session"),
+            ("Warning", "Session may run any script as you"),
+        ])[..]
+    );
+    assert!(f.contains(&("Allowed".into(), "vm/run".into())));
+
+    assert!(
+        parse(&v.address, &case(&v, "create_session_minimal"))
+            .unwrap()
+            .runs_code
+    );
+    assert!(
+        !parse(&v.address, &case(&v, "create_session"))
+            .unwrap()
+            .runs_code
+    );
+    for name in ["addpkg", "run"] {
+        let r = parse(&v.address, &case(&v, name)).unwrap();
+        assert!(r.runs_code && r.blind, "{name}");
+    }
+    for name in ["send", "call", "enable_pkg"] {
+        assert!(
+            !parse(&v.address, &case(&v, name)).unwrap().runs_code,
+            "{name}"
+        );
+    }
+}
+
+#[test]
+fn lifetime_spend_limit_is_a_warning() {
+    let v = vectors();
+    let doc = case(&v, "create_session").replace(",\"spend_period\":\"86400\"", "");
+    let f = fields(&parse(&v.address, &doc).unwrap());
+    assert!(f.contains(&("Warning".into(), "Spend limit never resets".into())));
+    assert!(f.contains(&("Spend period".into(), "Lifetime (never resets)".into())));
+}
+
+/// An addpkg whose files are replaced by `names`, each with a tiny body.
+fn addpkg_with_files(v: &Vectors, names: &[String]) -> String {
+    let doc = case(v, "addpkg");
+    let start = doc.find("\"files\":[").unwrap() + "\"files\":[".len();
+    let end = doc.find("],\"name\":\"hello\"").unwrap();
+    let files: Vec<String> = names
+        .iter()
+        .map(|n| format!("{{\"body\":\"package hello\\n\",\"name\":\"{n}\"}}"))
+        .collect();
+    format!("{}{}{}", &doc[..start], files.join(","), &doc[end..])
+}
+
+#[test]
+fn escaped_file_names_are_charged_before_they_are_kept() {
+    let v = vectors();
+    // Each name decodes to 200 NULs, which display as 800 characters.
+    let names: Vec<String> = (0..16)
+        .map(|i| format!("{}f{i:02}.gno", "\\u0000".repeat(200)))
+        .collect();
+    assert_eq!(
+        parse(&v.address, &addpkg_with_files(&v, &names)).err(),
+        Some(Error::ReviewTooLarge)
+    );
 }

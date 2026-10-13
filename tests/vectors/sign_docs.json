@@ -15,6 +15,11 @@
       "signature": "05cb86abeaeec8ea4b8d93e7178ba21fd12718ab827f53e61df8e0e53ce59ab71df192a3b0172c5431eccd2f5077f2b07ce68f0122e66fc8962aeb66ac350bbd"
     },
     {
+      "name": "memo_escapes",
+      "sign_bytes": "{\"account_number\":\"7\",\"chain_id\":\"test-chain\",\"fee\":{\"amount\":[],\"gas\":\"100000\"},\"memo\":\"q\\\"b\\\\ \\b\\t\\n\\f\\r \\u0000\\u001f  \\u003ca\\u0026b\\u003e \\u2028\\u2029 é😀 bad:�\",\"msgs\":[{\"@type\":\"/bank.MsgSend\",\"amount\":\"1ugnot\",\"from_address\":\"g1lw3n03x3zcqgxncq866pl8np5spd2kpdy7x0vf\",\"to_address\":\"g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5\"}],\"sequence\":\"3\"}",
+      "signature": "4eb2ad5a987aced2643a27feb8b8d1e673a2c2ef2712cfbd7f7cc304ba2f6cca76789b8c4f2356a03d443b267a27be439c2da9869e87e014c0552358f76e182a"
+    },
+    {
       "name": "call",
       "sign_bytes": "{\"account_number\":\"7\",\"chain_id\":\"test-chain\",\"fee\":{\"amount\":[{\"amount\":\"1000000\",\"denom\":\"ugnot\"}],\"gas\":\"2000000\"},\"memo\":\"\",\"msgs\":[{\"@type\":\"/vm.m_call\",\"args\":[\"1\",\"Hello\",\"World\"],\"caller\":\"g1lw3n03x3zcqgxncq866pl8np5spd2kpdy7x0vf\",\"func\":\"CreateThread\",\"max_deposit\":\"\",\"pkg_path\":\"gno.land/r/demo/boards\",\"send\":\"\"}],\"sequence\":\"3\"}",
       "signature": "0905b94e2e22d181f5d59d35fcf9c08033b37b457fd99971fb7cc54c625fb522073cd6d7cbd0d19f9b4cd3931d73077fe177741031e97fcf728b65d9161c4533"
@@ -48,6 +53,11 @@
       "name": "create_session_minimal",
       "sign_bytes": "{\"account_number\":\"7\",\"chain_id\":\"test-chain\",\"fee\":{\"amount\":[{\"amount\":\"1000\",\"denom\":\"ugnot\"}],\"gas\":\"200000\"},\"memo\":\"\",\"msgs\":[{\"@type\":\"/auth.m_create_session\",\"allow_paths\":[\"*\"],\"creator\":\"g1lw3n03x3zcqgxncq866pl8np5spd2kpdy7x0vf\",\"expires_at\":\"0\",\"session_key\":{\"@type\":\"/tm.PubKeySecp256k1\",\"value\":\"AtoA6EQbXBMzBYDZiC+WsCtM6iWk2aoaVvNkwKsTnMKi\"}}],\"sequence\":\"3\"}",
       "signature": "1091330d5635b9f7d7ab597abc96fe965cf8fa04fdfbbd378124b619d98714e73da8f63500dce602baf3000bb0aeadac5736fa62c9a57275cb7d483ea86dabc0"
+    },
+    {
+      "name": "create_session_run",
+      "sign_bytes": "{\"account_number\":\"7\",\"chain_id\":\"test-chain\",\"fee\":{\"amount\":[{\"amount\":\"1000\",\"denom\":\"ugnot\"}],\"gas\":\"200000\"},\"memo\":\"\",\"msgs\":[{\"@type\":\"/auth.m_create_session\",\"allow_paths\":[\"vm/run\"],\"creator\":\"g1lw3n03x3zcqgxncq866pl8np5spd2kpdy7x0vf\",\"expires_at\":\"1798761600\",\"session_key\":{\"@type\":\"/tm.PubKeySecp256k1\",\"value\":\"AtoA6EQbXBMzBYDZiC+WsCtM6iWk2aoaVvNkwKsTnMKi\"},\"spend_limit\":\"1000000ugnot\",\"spend_period\":\"86400\"}],\"sequence\":\"3\"}",
+      "signature": "4094b9439b289e28a5f6520169d20f13a24c335afe5a6d8c3a1bdf608bf16fb51f05325aa19be997809c5001717a8bf2a1703b18aed92d676a639e163598bd72"
     },
     {
       "name": "revoke_session",
