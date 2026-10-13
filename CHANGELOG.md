@@ -17,3 +17,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `/vm.m_addpkg` and `/vm.m_run` behind the "Packages" setting (off by default), signed through
   the blind-signing flow with a package fingerprint, the file list, and the imports and literal
   addresses found in the executed source.
+- Every review starts with the signing account's address.
+- Sessions allowed `vm/run` or `*` are warned about and need the "Packages" setting.
+
+### Security
+
+- Only payloads gno itself renders are signed: canonical Go JSON string escaping and valid UTF-8,
+  valid tm2 coins, and a fee of at most one positive coin.
+- `max_deposit` must be empty (chain default) or a single `ugnot` coin, matching what gno enforces.
+- Review text is charged against its budget before it is stored, so hostile payloads are refused
+  instead of exhausting the heap.
+- A signing session closes on any malformed or unrelated command.
+- Signatures from the SDK are parsed as strict DER before conversion.

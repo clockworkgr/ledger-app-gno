@@ -31,7 +31,13 @@ whitespace (`GetSignaturePayload` in `tm2/pkg/std/doc.go`):
 
 - `uint64`/`int64` values are JSON **strings**.
 - `fee` uses Cosmos's shape (`amount` + `gas`), not tm2's `std.Fee` (`gas_fee` + `gas_wanted`).
-  A zero fee is `"amount":[]`, never `null` and never a zero coin.
+  The fee is a single coin, so `amount` holds one positive coin or is `[]`. A zero fee is
+  always `[]`, never `null` and never a zero coin. Refuse a second coin as soon as it arrives.
+- Strings are encoded exactly as Go's `encoding/json` encodes them, because gno re-renders the
+  sign doc to verify it. The only escapes are `\" \\ \b \t \n \f \r`, `\u00XX` with lowercase hex
+  for the other control characters, `\u0026 \u003c \u003e` for `& < >`, and `\u2028 \u2029`.
+  Everything else is raw, valid UTF-8 (Go turns invalid bytes into a raw U+FFFD). Any other
+  spelling of the same text can never verify, so the device rejects it.
 - Each message carries its amino type URL in `"@type"`. Coins inside messages are tm2 coin
   strings, e.g. `"1000000ugnot"`, not objects. Public keys are amino `Any` objects,
   e.g. `{"@type":"/tm.PubKeySecp256k1","value":"<base64>"}`.
@@ -71,7 +77,14 @@ Every type that can be decoded from a transaction (amino-registered in a `packag
 - Always display chain ID, fee, gas, memo and every message's amounts and addresses. Each
   message's signer field (`from_address`, `caller`, `creator`, `approver`, `sender`) must equal
   the address derived on the device. If it doesn't, reject, since this app only signs for its own
-  account.
+  account. The review starts with that address ("Signer"): the host picks the derivation path,
+  and the user must see which account a transaction spends from.
+- Coin strings must be valid tm2 `Coins`: positive amounts, denoms in strictly ascending order
+  (so no duplicates), and valid denoms.
+- `max_deposit` (`m_call`, `m_addpkg`, `m_run`) is either empty, shown as "Chain default", or a
+  single positive `ugnot` coin. gno's `processStorageDeposit` reads only the `ugnot` amount and
+  uses the chain's `DefaultDeposit` when that is zero, so any other value would display a cap the
+  chain does not enforce. Reject it.
 - `m_call` args are arbitrary realm-defined strings. Show them verbatim, never interpreted.
 - `m_enable_pkg`: show `pkg_hash` in full. It is the `PackageContentHash` the approver is
   vouching for. Reject an empty `pkg_hash`. Show `pkg_height` and warn when it is `0` (unpinned).
@@ -79,6 +92,9 @@ Every type that can be decoded from a transaction (amino-registered in a `packag
   `g1` address, the expiry as a UTC date, every allow-path entry, and the spend limit and period.
   Show a warning screen for `"*"` in `allow_paths`, for `expires_at` = `0` (never expires), and for
   `spend_period` = `0` with a non-empty limit (a lifetime cap, not a per-period one).
+- A session allowed `vm/run`, or `*` (which gno's ante handler only denies for auth messages and
+  `m_addpkg`), can run arbitrary scripts as this account. The review warns about it, and signing
+  needs the Packages setting, like `m_run` itself.
 - Reject unknown `@type`s, unknown keys, duplicate keys and keys that are out of order. The
   bytes must be exactly what the chain will verify.
 - Display `ugnot` amounts as GNOT (1 GNOT = 1,000,000 ugnot) using integer arithmetic only.
@@ -122,7 +138,8 @@ works like this:
    the review must never present highlights as a substitute for it.
 5. **Gate.** Both messages run arbitrary code with this account's authority. `m_run` executes as
    the caller, and `m_addpkg`'s `init()` executes as the creator. Neither is bounded by `send`.
-   They are refused with `PACKAGE_TX_DISABLED` unless the "Packages" setting is on. NVM starts
+   They are refused with `PACKAGE_TX_DISABLED` unless the "Packages" setting is on, as is a
+   session that would be allowed `vm/run` or `*` (`Review::runs_code`). NVM starts
    zeroed, so it is off until the user enables it. When it is on, the review uses the SDK's
    blind-signing flow (`NbglReview::blind`), which warns first. Settings titles must stay short:
    a title wider than the Nano screen renders an empty page.
@@ -138,12 +155,21 @@ ledger-cosmos's Zondax protocol (CLA `0x55`). gnokey reaches Ledger through `led
 `docs/APDU.md`, the `Instruction` enum and `AppSW` in `src/main.rs`, and
 `tests/application_client/gno_command_sender.py` in sync.
 
+A signing session lives only for its own chunks. Any malformed command, wrong CLA included, and
+any other instruction closes it, so the app checks the CLA itself rather than through
+`Comm::set_expected_cla`, which would answer before the app could react. Transport-level errors
+that the SDK answers on its own, and BOLOS commands (CLA `0xB0`), never reach the app.
+
 ## Limits
 
 The payload itself is unbounded. What is bounded, in `src/tx/mod.rs`, is what has to be kept for
-the review: 512 bytes per displayed value, 3072 bytes of review text, 56 fields, 8 messages, and
+the review: 512 decoded bytes per value, 3072 bytes of review text, 56 fields, 8 messages, and
 128 bytes per import path. Exceeding any of them returns `TX_TOO_LARGE`. Values are never
-truncated.
+truncated. Review text is charged as displayed (escapes included) **before** it is rendered or
+stored, including what is kept aside until the payload ends: the memo, fee, gas, chain ID and
+the package's file names, imports and addresses. A hostile payload therefore hits
+`TX_TOO_LARGE` instead of exhausting the heap. Long values stay fully reviewable: Nano devices
+page through them, and Stax/Flex/Apex open them in full with "More".
 
 The review limits come from Nano X. NBGL copies the review again (C strings plus per-field
 descriptors) while showing it, and Nano X cannot raise its heap above 16 KiB without starving its
@@ -180,7 +206,7 @@ The home screen, app info and the Packages setting (off by default).
 
 ### Send
 
-`/bank.MsgSend`: recipient, amount in GNOT, fee, gas and chain ID.
+`/bank.MsgSend`: the signing account first, then recipient, amount in GNOT, fee, gas and chain ID. Every review starts with the signer.
 
 <p><img src="../tests/standalone/snapshots/stax/test_sign_clear_send/00000.png" width="96" alt="test_sign_clear_send 0"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_send/00001.png" width="96" alt="test_sign_clear_send 1"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_send/00002.png" width="96" alt="test_sign_clear_send 2"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_send/00003.png" width="96" alt="test_sign_clear_send 3"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_send/00004.png" width="96" alt="test_sign_clear_send 4"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_send/00005.png" width="96" alt="test_sign_clear_send 5"></p>
 
@@ -190,47 +216,59 @@ An empty fee shows as "None"; a memo is shown when present.
 
 <p><img src="../tests/standalone/snapshots/stax/test_sign_clear_send_zero_fee_memo/00000.png" width="96" alt="test_sign_clear_send_zero_fee_memo 0"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_send_zero_fee_memo/00001.png" width="96" alt="test_sign_clear_send_zero_fee_memo 1"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_send_zero_fee_memo/00002.png" width="96" alt="test_sign_clear_send_zero_fee_memo 2"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_send_zero_fee_memo/00003.png" width="96" alt="test_sign_clear_send_zero_fee_memo 3"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_send_zero_fee_memo/00004.png" width="96" alt="test_sign_clear_send_zero_fee_memo 4"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_send_zero_fee_memo/00005.png" width="96" alt="test_sign_clear_send_zero_fee_memo 5"></p>
 
+### Escaped memo
+
+Control characters, non-ASCII text and backslashes are shown as `\xNN` and `\\`, so no two different values look alike.
+
+<p><img src="../tests/standalone/snapshots/stax/test_sign_clear_memo_escapes/00000.png" width="96" alt="test_sign_clear_memo_escapes 0"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_memo_escapes/00001.png" width="96" alt="test_sign_clear_memo_escapes 1"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_memo_escapes/00002.png" width="96" alt="test_sign_clear_memo_escapes 2"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_memo_escapes/00003.png" width="96" alt="test_sign_clear_memo_escapes 3"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_memo_escapes/00004.png" width="96" alt="test_sign_clear_memo_escapes 4"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_memo_escapes/00005.png" width="96" alt="test_sign_clear_memo_escapes 5"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_memo_escapes/00006.png" width="96" alt="test_sign_clear_memo_escapes 6"></p>
+
 ### Realm call
 
 `/vm.m_call`: realm, function and every argument verbatim.
 
-<p><img src="../tests/standalone/snapshots/stax/test_sign_clear_call/00000.png" width="96" alt="test_sign_clear_call 0"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_call/00001.png" width="96" alt="test_sign_clear_call 1"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_call/00002.png" width="96" alt="test_sign_clear_call 2"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_call/00003.png" width="96" alt="test_sign_clear_call 3"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_call/00004.png" width="96" alt="test_sign_clear_call 4"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_call/00005.png" width="96" alt="test_sign_clear_call 5"></p>
+<p><img src="../tests/standalone/snapshots/stax/test_sign_clear_call/00000.png" width="96" alt="test_sign_clear_call 0"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_call/00001.png" width="96" alt="test_sign_clear_call 1"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_call/00002.png" width="96" alt="test_sign_clear_call 2"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_call/00003.png" width="96" alt="test_sign_clear_call 3"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_call/00004.png" width="96" alt="test_sign_clear_call 4"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_call/00005.png" width="96" alt="test_sign_clear_call 5"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_call/00006.png" width="96" alt="test_sign_clear_call 6"></p>
 
 ### Two messages
 
 Each message is labelled "Message N", followed by the transaction fields.
 
-<p><img src="../tests/standalone/snapshots/stax/test_sign_clear_two_msgs/00000.png" width="96" alt="test_sign_clear_two_msgs 0"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_two_msgs/00001.png" width="96" alt="test_sign_clear_two_msgs 1"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_two_msgs/00002.png" width="96" alt="test_sign_clear_two_msgs 2"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_two_msgs/00003.png" width="96" alt="test_sign_clear_two_msgs 3"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_two_msgs/00004.png" width="96" alt="test_sign_clear_two_msgs 4"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_two_msgs/00005.png" width="96" alt="test_sign_clear_two_msgs 5"></p>
+<p><img src="../tests/standalone/snapshots/stax/test_sign_clear_two_msgs/00000.png" width="96" alt="test_sign_clear_two_msgs 0"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_two_msgs/00001.png" width="96" alt="test_sign_clear_two_msgs 1"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_two_msgs/00002.png" width="96" alt="test_sign_clear_two_msgs 2"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_two_msgs/00003.png" width="96" alt="test_sign_clear_two_msgs 3"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_two_msgs/00004.png" width="96" alt="test_sign_clear_two_msgs 4"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_two_msgs/00005.png" width="96" alt="test_sign_clear_two_msgs 5"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_two_msgs/00006.png" width="96" alt="test_sign_clear_two_msgs 6"></p>
 
 ### Approve package
 
 `/vm.m_enable_pkg`: package, full `pkg_hash` and the submission height.
 
-<p><img src="../tests/standalone/snapshots/stax/test_sign_clear_enable_pkg/00000.png" width="96" alt="test_sign_clear_enable_pkg 0"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_enable_pkg/00001.png" width="96" alt="test_sign_clear_enable_pkg 1"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_enable_pkg/00002.png" width="96" alt="test_sign_clear_enable_pkg 2"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_enable_pkg/00003.png" width="96" alt="test_sign_clear_enable_pkg 3"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_enable_pkg/00004.png" width="96" alt="test_sign_clear_enable_pkg 4"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_enable_pkg/00005.png" width="96" alt="test_sign_clear_enable_pkg 5"></p>
+<p><img src="../tests/standalone/snapshots/stax/test_sign_clear_enable_pkg/00000.png" width="96" alt="test_sign_clear_enable_pkg 0"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_enable_pkg/00001.png" width="96" alt="test_sign_clear_enable_pkg 1"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_enable_pkg/00002.png" width="96" alt="test_sign_clear_enable_pkg 2"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_enable_pkg/00003.png" width="96" alt="test_sign_clear_enable_pkg 3"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_enable_pkg/00004.png" width="96" alt="test_sign_clear_enable_pkg 4"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_enable_pkg/00005.png" width="96" alt="test_sign_clear_enable_pkg 5"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_enable_pkg/00006.png" width="96" alt="test_sign_clear_enable_pkg 6"></p>
 
 ### Reject package
 
 `/vm.m_reject_pkg`.
 
-<p><img src="../tests/standalone/snapshots/stax/test_sign_clear_reject_pkg/00000.png" width="96" alt="test_sign_clear_reject_pkg 0"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_reject_pkg/00001.png" width="96" alt="test_sign_clear_reject_pkg 1"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_reject_pkg/00002.png" width="96" alt="test_sign_clear_reject_pkg 2"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_reject_pkg/00003.png" width="96" alt="test_sign_clear_reject_pkg 3"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_reject_pkg/00004.png" width="96" alt="test_sign_clear_reject_pkg 4"></p>
+<p><img src="../tests/standalone/snapshots/stax/test_sign_clear_reject_pkg/00000.png" width="96" alt="test_sign_clear_reject_pkg 0"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_reject_pkg/00001.png" width="96" alt="test_sign_clear_reject_pkg 1"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_reject_pkg/00002.png" width="96" alt="test_sign_clear_reject_pkg 2"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_reject_pkg/00003.png" width="96" alt="test_sign_clear_reject_pkg 3"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_reject_pkg/00004.png" width="96" alt="test_sign_clear_reject_pkg 4"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_reject_pkg/00005.png" width="96" alt="test_sign_clear_reject_pkg 5"></p>
 
 ### Create session
 
 `/auth.m_create_session`: session key as a `g1` address, allowed paths, expiry, spend limit and period.
 
-<p><img src="../tests/standalone/snapshots/stax/test_sign_clear_create_session/00000.png" width="96" alt="test_sign_clear_create_session 0"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_create_session/00001.png" width="96" alt="test_sign_clear_create_session 1"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_create_session/00002.png" width="96" alt="test_sign_clear_create_session 2"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_create_session/00003.png" width="96" alt="test_sign_clear_create_session 3"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_create_session/00004.png" width="96" alt="test_sign_clear_create_session 4"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_create_session/00005.png" width="96" alt="test_sign_clear_create_session 5"></p>
+<p><img src="../tests/standalone/snapshots/stax/test_sign_clear_create_session/00000.png" width="96" alt="test_sign_clear_create_session 0"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_create_session/00001.png" width="96" alt="test_sign_clear_create_session 1"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_create_session/00002.png" width="96" alt="test_sign_clear_create_session 2"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_create_session/00003.png" width="96" alt="test_sign_clear_create_session 3"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_create_session/00004.png" width="96" alt="test_sign_clear_create_session 4"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_create_session/00005.png" width="96" alt="test_sign_clear_create_session 5"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_create_session/00006.png" width="96" alt="test_sign_clear_create_session 6"></p>
+
+### Create session allowed to run scripts
+
+A session allowed `vm/run` gets a warning and needs the Packages setting.
+
+<p><img src="../tests/standalone/snapshots/stax/test_sign_clear_create_session_run/00000.png" width="96" alt="test_sign_clear_create_session_run 0"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_create_session_run/00001.png" width="96" alt="test_sign_clear_create_session_run 1"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_create_session_run/00002.png" width="96" alt="test_sign_clear_create_session_run 2"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_create_session_run/00003.png" width="96" alt="test_sign_clear_create_session_run 3"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_create_session_run/00004.png" width="96" alt="test_sign_clear_create_session_run 4"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_create_session_run/00005.png" width="96" alt="test_sign_clear_create_session_run 5"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_create_session_run/00006.png" width="96" alt="test_sign_clear_create_session_run 6"></p>
 
 ### Create session (risky settings)
 
-Warnings for `*` allow-paths and no expiry; an absent spend limit shows as "None (cannot spend)".
+Warnings for `*` allow-paths (which include scripts, so the Packages setting is needed) and no expiry; an absent spend limit shows as "None (cannot spend)".
 
-<p><img src="../tests/standalone/snapshots/stax/test_sign_clear_create_session_minimal/00000.png" width="96" alt="test_sign_clear_create_session_minimal 0"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_create_session_minimal/00001.png" width="96" alt="test_sign_clear_create_session_minimal 1"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_create_session_minimal/00002.png" width="96" alt="test_sign_clear_create_session_minimal 2"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_create_session_minimal/00003.png" width="96" alt="test_sign_clear_create_session_minimal 3"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_create_session_minimal/00004.png" width="96" alt="test_sign_clear_create_session_minimal 4"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_create_session_minimal/00005.png" width="96" alt="test_sign_clear_create_session_minimal 5"></p>
+<p><img src="../tests/standalone/snapshots/stax/test_sign_clear_create_session_minimal/00000.png" width="96" alt="test_sign_clear_create_session_minimal 0"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_create_session_minimal/00001.png" width="96" alt="test_sign_clear_create_session_minimal 1"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_create_session_minimal/00002.png" width="96" alt="test_sign_clear_create_session_minimal 2"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_create_session_minimal/00003.png" width="96" alt="test_sign_clear_create_session_minimal 3"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_create_session_minimal/00004.png" width="96" alt="test_sign_clear_create_session_minimal 4"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_create_session_minimal/00005.png" width="96" alt="test_sign_clear_create_session_minimal 5"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_create_session_minimal/00006.png" width="96" alt="test_sign_clear_create_session_minimal 6"></p>
 
 ### Revoke session
 
 `/auth.m_revoke_session`.
 
-<p><img src="../tests/standalone/snapshots/stax/test_sign_clear_revoke_session/00000.png" width="96" alt="test_sign_clear_revoke_session 0"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_revoke_session/00001.png" width="96" alt="test_sign_clear_revoke_session 1"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_revoke_session/00002.png" width="96" alt="test_sign_clear_revoke_session 2"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_revoke_session/00003.png" width="96" alt="test_sign_clear_revoke_session 3"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_revoke_session/00004.png" width="96" alt="test_sign_clear_revoke_session 4"></p>
+<p><img src="../tests/standalone/snapshots/stax/test_sign_clear_revoke_session/00000.png" width="96" alt="test_sign_clear_revoke_session 0"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_revoke_session/00001.png" width="96" alt="test_sign_clear_revoke_session 1"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_revoke_session/00002.png" width="96" alt="test_sign_clear_revoke_session 2"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_revoke_session/00003.png" width="96" alt="test_sign_clear_revoke_session 3"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_revoke_session/00004.png" width="96" alt="test_sign_clear_revoke_session 4"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_revoke_session/00005.png" width="96" alt="test_sign_clear_revoke_session 5"></p>
 
 ### Revoke all sessions
 
@@ -242,7 +280,7 @@ Warnings for `*` allow-paths and no expiry; an absent spend limit shows as "None
 
 `/vm.m_addpkg` with Packages enabled: the blind-signing warning, then imports, literal addresses (the signer marked "(you)"), files, size and fingerprint. The README, comment and test-file address in this package are correctly left out.
 
-<p><img src="../tests/standalone/snapshots/stax/test_sign_package_addpkg_highlights/warning/00000.png" width="96" alt="test_sign_package_addpkg_highlights 0"> <img src="../tests/standalone/snapshots/stax/test_sign_package_addpkg_highlights/00000.png" width="96" alt="test_sign_package_addpkg_highlights 1"> <img src="../tests/standalone/snapshots/stax/test_sign_package_addpkg_highlights/00001.png" width="96" alt="test_sign_package_addpkg_highlights 2"> <img src="../tests/standalone/snapshots/stax/test_sign_package_addpkg_highlights/00002.png" width="96" alt="test_sign_package_addpkg_highlights 3"> <img src="../tests/standalone/snapshots/stax/test_sign_package_addpkg_highlights/00003.png" width="96" alt="test_sign_package_addpkg_highlights 4"> <img src="../tests/standalone/snapshots/stax/test_sign_package_addpkg_highlights/00004.png" width="96" alt="test_sign_package_addpkg_highlights 5"> <img src="../tests/standalone/snapshots/stax/test_sign_package_addpkg_highlights/00005.png" width="96" alt="test_sign_package_addpkg_highlights 6"> <img src="../tests/standalone/snapshots/stax/test_sign_package_addpkg_highlights/00006.png" width="96" alt="test_sign_package_addpkg_highlights 7"> <img src="../tests/standalone/snapshots/stax/test_sign_package_addpkg_highlights/00007.png" width="96" alt="test_sign_package_addpkg_highlights 8"> <img src="../tests/standalone/snapshots/stax/test_sign_package_addpkg_highlights/00008.png" width="96" alt="test_sign_package_addpkg_highlights 9"></p>
+<p><img src="../tests/standalone/snapshots/stax/test_sign_package_addpkg_highlights/warning/00000.png" width="96" alt="test_sign_package_addpkg_highlights 0"> <img src="../tests/standalone/snapshots/stax/test_sign_package_addpkg_highlights/00000.png" width="96" alt="test_sign_package_addpkg_highlights 1"> <img src="../tests/standalone/snapshots/stax/test_sign_package_addpkg_highlights/00001.png" width="96" alt="test_sign_package_addpkg_highlights 2"> <img src="../tests/standalone/snapshots/stax/test_sign_package_addpkg_highlights/00002.png" width="96" alt="test_sign_package_addpkg_highlights 3"> <img src="../tests/standalone/snapshots/stax/test_sign_package_addpkg_highlights/00003.png" width="96" alt="test_sign_package_addpkg_highlights 4"> <img src="../tests/standalone/snapshots/stax/test_sign_package_addpkg_highlights/00004.png" width="96" alt="test_sign_package_addpkg_highlights 5"> <img src="../tests/standalone/snapshots/stax/test_sign_package_addpkg_highlights/00005.png" width="96" alt="test_sign_package_addpkg_highlights 6"> <img src="../tests/standalone/snapshots/stax/test_sign_package_addpkg_highlights/00006.png" width="96" alt="test_sign_package_addpkg_highlights 7"> <img src="../tests/standalone/snapshots/stax/test_sign_package_addpkg_highlights/00007.png" width="96" alt="test_sign_package_addpkg_highlights 8"> <img src="../tests/standalone/snapshots/stax/test_sign_package_addpkg_highlights/00008.png" width="96" alt="test_sign_package_addpkg_highlights 9"> <img src="../tests/standalone/snapshots/stax/test_sign_package_addpkg_highlights/00009.png" width="96" alt="test_sign_package_addpkg_highlights 10"></p>
 
 ### Run script
 
@@ -254,7 +292,7 @@ Warnings for `*` allow-paths and no expiry; an absent spend limit shows as "None
 
 The same send on a button device, one field per page.
 
-<p><img src="../tests/standalone/snapshots/nanosp/test_sign_clear_send/00000.png" width="160" alt="test_sign_clear_send 0"> <img src="../tests/standalone/snapshots/nanosp/test_sign_clear_send/00001.png" width="160" alt="test_sign_clear_send 1"> <img src="../tests/standalone/snapshots/nanosp/test_sign_clear_send/00002.png" width="160" alt="test_sign_clear_send 2"> <img src="../tests/standalone/snapshots/nanosp/test_sign_clear_send/00003.png" width="160" alt="test_sign_clear_send 3"> <img src="../tests/standalone/snapshots/nanosp/test_sign_clear_send/00004.png" width="160" alt="test_sign_clear_send 4"> <img src="../tests/standalone/snapshots/nanosp/test_sign_clear_send/00005.png" width="160" alt="test_sign_clear_send 5"> <img src="../tests/standalone/snapshots/nanosp/test_sign_clear_send/00006.png" width="160" alt="test_sign_clear_send 6"> <img src="../tests/standalone/snapshots/nanosp/test_sign_clear_send/00007.png" width="160" alt="test_sign_clear_send 7"> <img src="../tests/standalone/snapshots/nanosp/test_sign_clear_send/00008.png" width="160" alt="test_sign_clear_send 8"></p>
+<p><img src="../tests/standalone/snapshots/nanosp/test_sign_clear_send/00000.png" width="160" alt="test_sign_clear_send 0"> <img src="../tests/standalone/snapshots/nanosp/test_sign_clear_send/00001.png" width="160" alt="test_sign_clear_send 1"> <img src="../tests/standalone/snapshots/nanosp/test_sign_clear_send/00002.png" width="160" alt="test_sign_clear_send 2"> <img src="../tests/standalone/snapshots/nanosp/test_sign_clear_send/00003.png" width="160" alt="test_sign_clear_send 3"> <img src="../tests/standalone/snapshots/nanosp/test_sign_clear_send/00004.png" width="160" alt="test_sign_clear_send 4"> <img src="../tests/standalone/snapshots/nanosp/test_sign_clear_send/00005.png" width="160" alt="test_sign_clear_send 5"> <img src="../tests/standalone/snapshots/nanosp/test_sign_clear_send/00006.png" width="160" alt="test_sign_clear_send 6"> <img src="../tests/standalone/snapshots/nanosp/test_sign_clear_send/00007.png" width="160" alt="test_sign_clear_send 7"> <img src="../tests/standalone/snapshots/nanosp/test_sign_clear_send/00008.png" width="160" alt="test_sign_clear_send 8"> <img src="../tests/standalone/snapshots/nanosp/test_sign_clear_send/00009.png" width="160" alt="test_sign_clear_send 9"></p>
 
 ## Test vectors
 

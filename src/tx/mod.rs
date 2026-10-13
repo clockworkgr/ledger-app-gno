@@ -80,6 +80,30 @@ pub struct Review {
     /// True when the payload carries source code that cannot be reviewed on
     /// the device (`m_addpkg`, `m_run`).
     pub blind: bool,
+    /// True when signing grants the power to run arbitrary code as this
+    /// account: package messages, and sessions allowed `vm/run` or `*`. Such
+    /// payloads need the Packages setting.
+    pub runs_code: bool,
+}
+
+impl Review {
+    fn empty() -> Self {
+        Review {
+            fields: Vec::new(),
+            blind: false,
+            runs_code: false,
+        }
+    }
+}
+
+const IMPORT_LABEL: &str = "Import";
+const ADDRESS_LABEL: &str = "Address in code";
+const FILE_LABEL: &str = "File";
+const YOU_SUFFIX: &str = " (you)";
+
+/// Review bytes a field costs: its label, its value and a separator each.
+fn field_cost(name: &str, value_len: usize) -> usize {
+    name.len() + value_len + 2
 }
 
 #[derive(Clone, Copy)]
@@ -167,10 +191,7 @@ impl<H: Hashes> Parser<H> {
             leaf: None,
             value: Vec::new(),
             signer,
-            review: Review {
-                fields: Vec::new(),
-                blind: false,
-            },
+            review: Review::empty(),
             review_bytes: 0,
             messages: 0,
             message: MessageState::default(),
@@ -199,59 +220,96 @@ impl<H: Hashes> Parser<H> {
         }
         if self.messages > 1 {
             let mut n = 0;
+            let mut grown = 0;
             for f in self.review.fields.iter_mut() {
                 if f.rank == schema::rank::TYPE {
                     n += 1;
-                    f.name = Cow::Owned(alloc::format!("Message {}", n));
+                    let name = alloc::format!("Message {}", n);
+                    grown += name.len() - f.name.len();
+                    f.name = Cow::Owned(name);
                 }
             }
+            self.charge(grown)?;
         }
+        // The account signing comes first: the host picks the derivation path,
+        // so the user must see which account a transaction spends from.
+        let mut signer = String::new();
+        encoding::push_display(&mut signer, &self.signer);
+        self.push("Signer", signer, 0)?;
+        self.review.fields.rotate_right(1);
+        // Memo, fee, gas and chain ID were charged when they were read.
         if !self.memo.is_empty() {
             let memo = core::mem::take(&mut self.memo);
-            self.push("Memo", memo, 0)?;
+            self.push_charged(Cow::Borrowed("Memo"), memo, 0)?;
         }
-        let fee = core::mem::take(&mut self.fee);
-        let fee = if fee.is_empty() {
-            String::from("None")
+        if self.fee.is_empty() {
+            self.push("Fee", String::from("None"), 0)?;
         } else {
-            fee
-        };
-        self.push("Fee", fee, 0)?;
+            let fee = core::mem::take(&mut self.fee);
+            self.push_charged(Cow::Borrowed("Fee"), fee, 0)?;
+        }
         let gas = core::mem::take(&mut self.gas);
-        self.push("Gas limit", gas, 0)?;
+        self.push_charged(Cow::Borrowed("Gas limit"), gas, 0)?;
         let chain_id = core::mem::take(&mut self.chain_id);
-        self.push("Chain ID", chain_id, 0)?;
-        Ok(core::mem::replace(
-            &mut self.review,
-            Review {
-                fields: Vec::new(),
-                blind: false,
-            },
-        ))
+        self.push_charged(Cow::Borrowed("Chain ID"), chain_id, 0)?;
+        Ok(core::mem::replace(&mut self.review, Review::empty()))
     }
 
     fn push(&mut self, name: &'static str, value: String, rank: u16) -> Result<(), Error> {
         self.push_field(Cow::Borrowed(name), value, rank)
     }
 
-    fn push_owned(&mut self, name: String, value: String, rank: u16) -> Result<(), Error> {
-        self.push_field(Cow::Owned(name), value, rank)
+    fn push_field(
+        &mut self,
+        name: Cow<'static, str>,
+        value: String,
+        rank: u16,
+    ) -> Result<(), Error> {
+        self.charge(field_cost(&name, value.len()))?;
+        self.push_charged(name, value, rank)
     }
 
-    fn push_field(
+    /// Pushes a field whose bytes were already charged with [`Self::charge`].
+    fn push_charged(
         &mut self,
         name: Cow<'static, str>,
         mut value: String,
         rank: u16,
     ) -> Result<(), Error> {
-        self.review_bytes += name.len() + value.len() + 2;
-        if self.review_bytes > MAX_REVIEW_BYTES || self.review.fields.len() == MAX_REVIEW_FIELDS {
+        if self.review.fields.len() == MAX_REVIEW_FIELDS {
             return Err(Error::ReviewTooLarge);
         }
         // Values grow byte by byte; the review is held until approval.
         value.shrink_to_fit();
         self.review.fields.push(ReviewField { name, value, rank });
         Ok(())
+    }
+
+    /// Reserves review bytes for text about to be kept. Everything retained
+    /// for display is charged before it is rendered or stored, so a hostile
+    /// payload hits `ReviewTooLarge` instead of exhausting the heap.
+    fn charge(&mut self, bytes: usize) -> Result<(), Error> {
+        self.review_bytes += bytes;
+        if self.review_bytes > MAX_REVIEW_BYTES {
+            return Err(Error::ReviewTooLarge);
+        }
+        Ok(())
+    }
+
+    /// Charges, renders with [`encoding::push_display`] and pushes a value.
+    fn push_display(&mut self, name: &'static str, value: &[u8], rank: u16) -> Result<(), Error> {
+        self.charge(field_cost(name, encoding::display_len(value)))?;
+        let mut s = String::new();
+        encoding::push_display(&mut s, value);
+        self.push_charged(Cow::Borrowed(name), s, rank)
+    }
+
+    /// Charges and renders a value kept aside until [`Self::finish`].
+    fn defer_display(&mut self, name: &'static str, value: &[u8]) -> Result<String, Error> {
+        self.charge(field_cost(name, encoding::display_len(value)))?;
+        let mut s = String::new();
+        encoding::push_display(&mut s, value);
+        Ok(s)
     }
 
     fn top(&mut self) -> Option<&mut Frame> {
@@ -303,38 +361,65 @@ impl<H: Hashes> Parser<H> {
                 if v.is_empty() {
                     return Err(Error::InvalidValue);
                 }
-                encoding::push_display(&mut self.chain_id, &v);
+                self.chain_id = self.defer_display("Chain ID", &v)?;
             }
             Leaf::AccountNumber | Leaf::Sequence => {
                 encoding::parse_u64(&v)?;
             }
-            Leaf::Memo => encoding::push_display(&mut self.memo, &v),
+            Leaf::Memo => {
+                if !v.is_empty() {
+                    self.memo = self.defer_display("Memo", &v)?;
+                }
+            }
             Leaf::Gas => {
                 encoding::parse_i64_nonneg(&v)?;
-                encoding::push_display(&mut self.gas, &v);
+                self.gas = self.defer_display("Gas limit", &v)?;
             }
             Leaf::FeeAmount => {
+                // tm2 renders a zero fee as an empty list, never as a coin.
                 self.fee_amount =
                     encoding::parse_i64_nonneg(&v).map_err(|_| Error::InvalidCoins)?;
+                if self.fee_amount == 0 {
+                    return Err(Error::InvalidCoins);
+                }
             }
             Leaf::FeeDenom => {
+                // A tm2 fee is a single coin.
                 if !self.fee.is_empty() {
-                    self.fee.push_str(", ");
+                    return Err(Error::InvalidCoins);
                 }
-                encoding::write_amount(&mut self.fee, self.fee_amount, &v)?;
+                let mut fee = String::new();
+                encoding::write_amount(&mut fee, self.fee_amount, &v)?;
+                self.charge(field_cost("Fee", fee.len()))?;
+                self.fee = fee;
             }
             Leaf::Signer => self.signer_field(&v)?,
             Leaf::Address(label, r) => {
                 encoding::validate_address(&v)?;
-                let mut s = String::new();
-                encoding::push_display(&mut s, &v);
-                self.push(label, s, r)?;
+                self.push_display(label, &v, r)?;
             }
             Leaf::Coins { label, empty, rank } => match (encoding::format_coins(&v)?, empty) {
                 (Some(s), _) => self.push(label, s, rank)?,
                 (None, Some(text)) => self.push(label, String::from(text), rank)?,
                 (None, None) => return Err(Error::InvalidCoins),
             },
+            Leaf::MaxDeposit => {
+                // gno reads only the ugnot amount and substitutes the chain
+                // default when it is zero, so any other form would display a
+                // cap that is not the one enforced.
+                let s = if v.is_empty() {
+                    String::from("Chain default")
+                } else {
+                    let (amount, denom) = encoding::parse_coin(&v)?;
+                    if denom != b"ugnot" {
+                        return Err(Error::InvalidCoins);
+                    }
+                    let mut s = String::new();
+                    encoding::write_amount(&mut s, amount, denom)?;
+                    s
+                };
+                self.push("Max deposit", s, rank::MAX_DEPOSIT)?;
+            }
             Leaf::SpendLimit => {
                 self.message.seen_spend_limit = true;
                 let s = encoding::format_coins(&v)?.ok_or(Error::InvalidCoins)?;
@@ -353,29 +438,29 @@ impl<H: Hashes> Parser<H> {
                     rank::SPEND_PERIOD,
                 )?;
             }
-            Leaf::Text(label, r) => {
-                let mut s = String::new();
-                encoding::push_display(&mut s, &v);
-                self.push(label, s, r)?;
-            }
+            Leaf::Text(label, r) => self.push_display(label, &v, r)?,
             Leaf::Arg => {
                 self.message.arg_index += 1;
                 let n = self.message.arg_index;
+                let name = alloc::format!("Arg {}", n);
+                self.charge(field_cost(&name, encoding::display_len(&v)))?;
                 let mut s = String::new();
                 encoding::push_display(&mut s, &v);
-                self.push_owned(alloc::format!("Arg {}", n), s, rank::ARGS + n)?;
+                self.push_charged(Cow::Owned(name), s, rank::ARGS + n)?;
             }
             Leaf::AllowPath => {
-                if v == b"*" {
-                    self.push(
-                        "Warning",
-                        String::from("Session may sign any message type"),
-                        rank::WARNING,
-                    )?;
+                // gno's session wildcard denies only auth messages and
+                // m_addpkg, so it includes vm/run.
+                let warning = match v.as_slice() {
+                    b"*" => Some("Session may sign any message, scripts included"),
+                    b"vm/run" => Some("Session may run any script as you"),
+                    _ => None,
+                };
+                if let Some(text) = warning {
+                    self.review.runs_code = true;
+                    self.push("Warning", String::from(text), rank::WARNING)?;
                 }
-                let mut s = String::new();
-                encoding::push_display(&mut s, &v);
-                self.push("Allowed", s, rank::ALLOW_PATH)?;
+                self.push_display("Allowed", &v, rank::ALLOW_PATH)?;
             }
             Leaf::ExpiresAt => {
                 let ts = encoding::parse_i64_nonneg(&v)?;
@@ -406,9 +491,7 @@ impl<H: Hashes> Parser<H> {
                 if v.len() != 64 || !encoding::is_lower_hex(&v) {
                     return Err(Error::InvalidValue);
                 }
-                let mut s = String::new();
-                encoding::push_display(&mut s, &v);
-                self.push("Package hash", s, rank::PKG_HASH)?;
+                self.push_display("Package hash", &v, rank::PKG_HASH)?;
             }
             Leaf::PkgHeight => {
                 let h = encoding::parse_i64_nonneg(&v)?;
@@ -429,18 +512,18 @@ impl<H: Hashes> Parser<H> {
                 if v.is_empty() {
                     return Err(Error::InvalidValue);
                 }
-                let mut s = String::new();
-                encoding::push_display(&mut s, &v);
-                self.push("Package name", s, rank::PKG_NAME)?;
+                self.push_display("Package name", &v, rank::PKG_NAME)?;
             }
             Leaf::PkgPath => {
-                let mut s = String::new();
                 if v.is_empty() {
-                    s.push_str("(assigned by chain)");
+                    self.push(
+                        "Package",
+                        String::from("(assigned by chain)"),
+                        rank::PKG_PATH,
+                    )?;
                 } else {
-                    encoding::push_display(&mut s, &v);
+                    self.push_display("Package", &v, rank::PKG_PATH)?;
                 }
-                self.push("Package", s, rank::PKG_PATH)?;
             }
             Leaf::PkgType => {
                 if v != b"MPUserAll" && v != b"MPUserProd" {
@@ -453,34 +536,62 @@ impl<H: Hashes> Parser<H> {
                 pkg.body_hash = body.finalize();
                 pkg.pending = Some(pkg.scanner.take().ok_or(Error::Syntax)?.finish());
             }
-            Leaf::FileName => {
-                let pkg = self.package.as_mut().ok_or(Error::Syntax)?;
-                let prev = &pkg.prev_name[..pkg.prev_name_len];
-                if v.is_empty() || (pkg.files > 0 && v.as_slice() <= prev) {
-                    return Err(Error::UnsortedFiles);
-                }
-                // Each file contributes len(name) || name || SHA256(body); see
-                // docs/APDU.md for the full fingerprint definition.
-                pkg.fingerprint.update(&(v.len() as u32).to_be_bytes());
-                pkg.fingerprint.update(&v);
-                pkg.fingerprint.update(&pkg.body_hash);
-                pkg.prev_name[..v.len()].copy_from_slice(&v);
-                pkg.prev_name_len = v.len();
-                pkg.files += 1;
-                let findings = pkg.pending.take().ok_or(Error::Syntax)?;
-                if source::executes(&v) {
-                    pkg.found.merge(findings);
-                }
-                if pkg.listed.len() < MAX_LISTED_FILES {
-                    let mut s = String::new();
-                    encoding::push_display(&mut s, &v);
-                    s.push_str(&alloc::format!(" ({} bytes)", pkg.body_len));
-                    pkg.listed.push(s);
-                }
-            }
+            Leaf::FileName => self.end_file_name(&v)?,
         }
         self.value = v;
         self.value.clear();
+        Ok(())
+    }
+
+    /// Closes a package file: checks its order, extends the fingerprint, and
+    /// keeps what the review shows about it, charged before it is stored.
+    fn end_file_name(&mut self, name: &[u8]) -> Result<(), Error> {
+        let signer = self.signer;
+        let pkg = self.package.as_mut().ok_or(Error::Syntax)?;
+        let prev = &pkg.prev_name[..pkg.prev_name_len];
+        if name.is_empty() || (pkg.files > 0 && name <= prev) {
+            return Err(Error::UnsortedFiles);
+        }
+        // Each file contributes len(name) || name || SHA256(body); see
+        // docs/APDU.md for the full fingerprint definition.
+        pkg.fingerprint.update(&(name.len() as u32).to_be_bytes());
+        pkg.fingerprint.update(name);
+        pkg.fingerprint.update(&pkg.body_hash);
+        pkg.prev_name[..name.len()].copy_from_slice(name);
+        pkg.prev_name_len = name.len();
+        pkg.files += 1;
+
+        let mut cost = 0;
+        let findings = pkg.pending.take().ok_or(Error::Syntax)?;
+        if source::executes(name) {
+            for path in &findings.imports {
+                if pkg.found.add_import(path) {
+                    cost += field_cost(IMPORT_LABEL, encoding::display_len(path));
+                }
+            }
+            for addr in &findings.addresses {
+                if pkg.found.add_address(addr) {
+                    let you = if *addr == signer { YOU_SUFFIX.len() } else { 0 };
+                    cost += field_cost(ADDRESS_LABEL, encoding::ADDRESS_LEN + you);
+                }
+            }
+            pkg.found.more_imports |= findings.more_imports;
+            pkg.found.more_addresses |= findings.more_addresses;
+            pkg.found.long_import |= findings.long_import;
+        }
+        let size = alloc::format!(" ({} bytes)", pkg.body_len);
+        let listed = pkg.listed.len() < MAX_LISTED_FILES;
+        if listed {
+            cost += field_cost(FILE_LABEL, encoding::display_len(name) + size.len());
+        }
+        self.charge(cost)?;
+        if listed {
+            let pkg = self.package.as_mut().ok_or(Error::Syntax)?;
+            let mut s = String::new();
+            encoding::push_display(&mut s, name);
+            s.push_str(&size);
+            pkg.listed.push(s);
+        }
         Ok(())
     }
 
@@ -515,6 +626,7 @@ impl<H: Hashes> Parser<H> {
                 ..Default::default()
             };
             self.review.blind |= info.blind;
+            self.review.runs_code |= info.blind;
             self.push("Type", String::from(info.title), schema::rank::TYPE)?;
             if info.kind == MessageKind::Run {
                 self.push(
@@ -539,6 +651,11 @@ impl<H: Hashes> Parser<H> {
                     rank::SPEND_LIMIT,
                 )?;
             } else if !self.message.seen_spend_period {
+                self.push(
+                    "Warning",
+                    String::from("Spend limit never resets"),
+                    rank::WARNING,
+                )?;
                 self.push(
                     "Spend period",
                     String::from("Lifetime (never resets)"),
@@ -578,10 +695,11 @@ impl<H: Hashes> Parser<H> {
         if found.imports.is_empty() {
             self.push("Imports", String::from("None"), rank::PKG_IMPORTS)?;
         }
+        // Listed imports, addresses and files were charged as they were found.
         for path in &found.imports {
             let mut s = String::new();
             encoding::push_display(&mut s, path);
-            self.push("Import", s, rank::PKG_IMPORTS)?;
+            self.push_charged(Cow::Borrowed(IMPORT_LABEL), s, rank::PKG_IMPORTS)?;
         }
         if found.addresses.is_empty() {
             self.push(
@@ -594,9 +712,9 @@ impl<H: Hashes> Parser<H> {
             let mut s = String::new();
             encoding::push_display(&mut s, addr);
             if *addr == self.signer {
-                s.push_str(" (you)");
+                s.push_str(YOU_SUFFIX);
             }
-            self.push("Address in code", s, rank::PKG_ADDRESSES)?;
+            self.push_charged(Cow::Borrowed(ADDRESS_LABEL), s, rank::PKG_ADDRESSES)?;
         }
         Ok(())
     }
@@ -610,11 +728,11 @@ impl<H: Hashes> Parser<H> {
         self.push("Files", alloc::format!("{}", pkg.files), rank::PKG_FILES)?;
         let unlisted = pkg.files as usize - pkg.listed.len();
         for name in pkg.listed {
-            self.push("File", name, rank::PKG_FILE_LIST)?;
+            self.push_charged(Cow::Borrowed(FILE_LABEL), name, rank::PKG_FILE_LIST)?;
         }
         if unlisted > 0 {
             self.push(
-                "File",
+                FILE_LABEL,
                 alloc::format!("and {} more", unlisted),
                 rank::PKG_FILE_LIST,
             )?;

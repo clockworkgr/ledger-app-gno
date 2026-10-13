@@ -24,13 +24,13 @@ PUBKEY = bytes.fromhex(VECTORS["pubkey"])
 CLEAR_SIGNED = [
     "send",
     "send_zero_fee_memo",
+    "memo_escapes",
     "call",
     "call_send_no_args",
     "two_msgs",
     "enable_pkg",
     "reject_pkg",
     "create_session",
-    "create_session_minimal",
     "revoke_session",
     "revoke_all_sessions",
 ]
@@ -104,7 +104,7 @@ def near_limit_payload(import_padding: int) -> bytes:
 def test_sign_review_near_memory_limit(backend, device, navigator, scenario_navigator):
     """Within a few bytes of MAX_REVIEW_BYTES and one field of MAX_REVIEW_FIELDS.
     Nano X has the least heap to show it."""
-    payload = near_limit_payload(7)
+    payload = near_limit_payload(5)
     toggle_package_transactions(device, backend, navigator)
     client = GnoCommandSender(backend)
     with client.sign_tx(PATH, payload):
@@ -166,9 +166,7 @@ def test_sign_truncated(backend):
 
 def test_sign_value_too_long(backend):
     client = GnoCommandSender(backend)
-    payload = sign_bytes(VECTORS, "send_zero_fee_memo").replace(
-        b'"memo":"thanks"', b'"memo":"' + b"m" * 513 + b'"', 1
-    )
+    payload = sign_bytes(VECTORS, "send_zero_fee_memo").replace(b'"memo":"thanks"', b'"memo":"' + b"m" * 513 + b'"', 1)
     with pytest.raises(ExceptionRAPDU) as e:
         client.sign_tx_no_ui(PATH, payload)
     assert e.value.status == Errors.SW_TX_TOO_LARGE
@@ -176,9 +174,7 @@ def test_sign_value_too_long(backend):
 
 def test_sign_without_session(backend):
     with pytest.raises(ExceptionRAPDU) as e:
-        backend.exchange(
-            cla=CLA, ins=InsType.SIGN_TX, p1=P1.SIGN_TX_NEXT, p2=P2.SIGN_TX_LAST, data=b"{}"
-        )
+        backend.exchange(cla=CLA, ins=InsType.SIGN_TX, p1=P1.SIGN_TX_NEXT, p2=P2.SIGN_TX_LAST, data=b"{}")
     assert e.value.status == Errors.SW_TX_NO_SESSION
 
 
@@ -187,13 +183,9 @@ def test_sign_error_closes_session(backend):
     client = GnoCommandSender(backend)
     client.sign_tx_start(PATH)
     with pytest.raises(ExceptionRAPDU):
-        backend.exchange(
-            cla=CLA, ins=InsType.SIGN_TX, p1=P1.SIGN_TX_NEXT, p2=P2.SIGN_TX_MORE, data=b"["
-        )
+        backend.exchange(cla=CLA, ins=InsType.SIGN_TX, p1=P1.SIGN_TX_NEXT, p2=P2.SIGN_TX_MORE, data=b"[")
     with pytest.raises(ExceptionRAPDU) as e:
-        backend.exchange(
-            cla=CLA, ins=InsType.SIGN_TX, p1=P1.SIGN_TX_NEXT, p2=P2.SIGN_TX_LAST, data=b"{}"
-        )
+        backend.exchange(cla=CLA, ins=InsType.SIGN_TX, p1=P1.SIGN_TX_NEXT, p2=P2.SIGN_TX_LAST, data=b"{}")
     assert e.value.status == Errors.SW_TX_NO_SESSION
 
 
@@ -206,9 +198,7 @@ def test_sign_path_chunk_must_announce_more(backend):
 def test_sign_large_package_streams(backend, device, navigator, scenario_navigator):
     """A payload far larger than RAM is hashed and parsed as it streams."""
     name = "run"
-    payload = sign_bytes(VECTORS, name).replace(
-        b'"body":"package main', b'"body":"// ' + b"x" * 60_000 + b"\\npackage main", 1
-    )
+    payload = sign_bytes(VECTORS, name).replace(b'"body":"package main', b'"body":"// ' + b"x" * 60_000 + b"\\npackage main", 1)
     toggle_package_transactions(device, backend, navigator)
     client = GnoCommandSender(backend)
     with client.sign_tx(PATH, payload):
@@ -216,3 +206,89 @@ def test_sign_large_package_streams(backend, device, navigator, scenario_navigat
     signature = unpack_sign_tx_response(client.get_async_response().data)
     assert check_signature_validity(PUBKEY, signature, payload)
     toggle_package_transactions(device, backend, navigator)
+
+
+# Sessions allowed vm/run, or "*" which includes it.
+CODE_RUNNING_SESSIONS = ["create_session_run", "create_session_minimal"]
+
+
+@pytest.mark.parametrize("name", CODE_RUNNING_SESSIONS)
+def test_sign_session_running_code_disabled_by_default(backend, name):
+    """A session that may run scripts as the account needs the Packages
+    setting, like m_run itself."""
+    client = GnoCommandSender(backend)
+    with pytest.raises(ExceptionRAPDU) as e:
+        client.sign_tx_no_ui(PATH, sign_bytes(VECTORS, name))
+    assert e.value.status == Errors.SW_PACKAGE_TX_DISABLED
+
+
+@pytest.mark.parametrize("name", CODE_RUNNING_SESSIONS)
+def test_sign_session_running_code_with_setting(backend, device, navigator, scenario_navigator, name):
+    toggle_package_transactions(device, backend, navigator)
+    client = GnoCommandSender(backend)
+    with client.sign_tx(PATH, sign_bytes(VECTORS, name)):
+        scenario_navigator.review_approve(test_name=f"test_sign_clear_{name}")
+    assert_signed(name, unpack_sign_tx_response(client.get_async_response().data))
+    toggle_package_transactions(device, backend, navigator)
+
+
+@pytest.mark.parametrize("max_deposit", [b"1foo", b"0ugnot", b"1ugnot,1zzz"])
+def test_sign_max_deposit_must_be_ugnot(backend, max_deposit):
+    """gno only reads ugnot from max_deposit; any other form would show a cap
+    that the chain does not enforce."""
+    client = GnoCommandSender(backend)
+    payload = sign_bytes(VECTORS, "call").replace(b'"max_deposit":""', b'"max_deposit":"' + max_deposit + b'"', 1)
+    with pytest.raises(ExceptionRAPDU) as e:
+        client.sign_tx_no_ui(PATH, payload)
+    assert e.value.status == Errors.SW_TX_PARSING_FAIL
+
+
+def test_sign_escaped_file_names_are_refused(backend):
+    """File names that escape to four times their size hit the review budget
+    instead of exhausting the heap."""
+    doc = sign_bytes(VECTORS, "addpkg")
+    start = doc.index(b'"files":[') + len(b'"files":[')
+    end = doc.index(b'],"name":"hello"')
+    files = [b'{"body":"package hello\\n","name":"' + b"\\u0000" * 200 + f"f{i:02}.gno".encode() + b'"}' for i in range(16)]
+    payload = doc[:start] + b",".join(files) + doc[end:]
+    client = GnoCommandSender(backend)
+    with pytest.raises(ExceptionRAPDU) as e:
+        client.sign_tx_no_ui(PATH, payload)
+    assert e.value.status == Errors.SW_TX_TOO_LARGE
+
+
+def open_session_with_prefix(backend) -> bytes:
+    """Opens a session and sends the first chunk of a send; returns the rest."""
+    client = GnoCommandSender(backend)
+    payload = sign_bytes(VECTORS, "send")
+    client.sign_tx_start(PATH)
+    backend.exchange(cla=CLA, ins=InsType.SIGN_TX, p1=P1.SIGN_TX_NEXT, p2=P2.SIGN_TX_MORE, data=payload[:100])
+    return payload[100:]
+
+
+def assert_session_closed(backend, rest: bytes) -> None:
+    with pytest.raises(ExceptionRAPDU) as e:
+        backend.exchange(cla=CLA, ins=InsType.SIGN_TX, p1=P1.SIGN_TX_NEXT, p2=P2.SIGN_TX_LAST, data=rest)
+    assert e.value.status == Errors.SW_TX_NO_SESSION
+
+
+def test_sign_malformed_header_closes_session(backend):
+    rest = open_session_with_prefix(backend)
+    with pytest.raises(ExceptionRAPDU) as e:
+        backend.exchange(cla=CLA, ins=InsType.SIGN_TX, p1=0x02, p2=P2.SIGN_TX_MORE, data=rest[:10])
+    assert e.value.status == Errors.SW_WRONG_P1P2
+    assert_session_closed(backend, rest)
+
+
+def test_sign_wrong_cla_closes_session(backend):
+    rest = open_session_with_prefix(backend)
+    with pytest.raises(ExceptionRAPDU) as e:
+        backend.exchange(cla=CLA + 1, ins=InsType.SIGN_TX, p1=P1.SIGN_TX_NEXT, p2=P2.SIGN_TX_MORE, data=rest[:10])
+    assert e.value.status == Errors.SW_CLA_NOT_SUPPORTED
+    assert_session_closed(backend, rest)
+
+
+def test_sign_other_command_closes_session(backend):
+    rest = open_session_with_prefix(backend)
+    GnoCommandSender(backend).get_version()
+    assert_session_closed(backend, rest)
