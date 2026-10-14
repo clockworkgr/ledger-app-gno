@@ -23,7 +23,7 @@ pub const MAX_VALUE_LEN: usize = 512;
 /// Upper bound on the review's total text, which NBGL copies once more. With
 /// `MAX_REVIEW_FIELDS`, sized so the largest review fits Nano X's 16 KiB heap.
 pub const MAX_REVIEW_BYTES: usize = 3072;
-pub const MAX_REVIEW_FIELDS: usize = 56;
+pub const MAX_REVIEW_FIELDS: usize = 57;
 pub const MAX_MESSAGES: usize = 8;
 /// Files named in a package review; the rest are counted.
 pub const MAX_LISTED_FILES: usize = 16;
@@ -177,6 +177,7 @@ pub struct Parser<H: Hashes> {
     fee_amount: u64,
     gas: String,
     memo: String,
+    sequence: String,
     package: Option<PackageState<H>>,
 }
 
@@ -200,6 +201,7 @@ impl<H: Hashes> Parser<H> {
             fee_amount: 0,
             gas: String::new(),
             memo: String::new(),
+            sequence: String::new(),
             package: None,
         }
     }
@@ -231,13 +233,16 @@ impl<H: Hashes> Parser<H> {
             }
             self.charge(grown)?;
         }
-        // The account signing comes first: the host picks the derivation path,
-        // so the user must see which account a transaction spends from.
+        // The sequence comes first, to tell transactions apart at a glance,
+        // then the signer: the host picks the derivation path, so the user
+        // must see which account a transaction spends from.
+        let sequence = core::mem::take(&mut self.sequence);
+        self.push_charged(Cow::Borrowed("Sequence"), sequence, 0)?;
         let mut signer = String::new();
         encoding::push_display(&mut signer, &self.signer);
         self.push("Signer", signer, 0)?;
-        self.review.fields.rotate_right(1);
-        // Memo, fee, gas and chain ID were charged when they were read.
+        self.review.fields.rotate_right(2);
+        // Sequence, memo, fee, gas and chain ID were charged when they were read.
         if !self.memo.is_empty() {
             let memo = core::mem::take(&mut self.memo);
             self.push_charged(Cow::Borrowed("Memo"), memo, 0)?;
@@ -363,8 +368,12 @@ impl<H: Hashes> Parser<H> {
                 }
                 self.chain_id = self.defer_display("Chain ID", &v)?;
             }
-            Leaf::AccountNumber | Leaf::Sequence => {
+            Leaf::AccountNumber => {
                 encoding::parse_u64(&v)?;
+            }
+            Leaf::Sequence => {
+                encoding::parse_u64(&v)?;
+                self.sequence = self.defer_display("Sequence", &v)?;
             }
             Leaf::Memo => {
                 if !v.is_empty() {
