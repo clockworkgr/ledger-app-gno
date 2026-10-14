@@ -38,7 +38,7 @@ Ledger hardware-wallet application for Gno (gno.land), written in Rust, targetin
   - `encoding.rs` — bech32, base64, canonical decimals, GNOT amounts, UTC dates, escaping for display.
   - `source.rs` — single-pass Go tokenizer that pulls import paths and literal `g1` addresses out of package source for the review.
 - `src/crypto.rs` — key derivation, `g1` addresses, and the conversion from SDK DER signatures to tm2's 64-byte low-S form.
-- `src/bip32.rs` — accepts only `m/44'/118'/a'/0/i`, in a fixed array.
+- `src/bip32.rs` — accepts only `m/44'/118'/a'/0/i`, in a fixed array; `address_index` builds the first account's path for "Show address".
 - `src/app_ui/` — NBGL screens; `src/settings.rs` — the NVM-backed "Packages" switch.
 
 ### Signing flow
@@ -49,7 +49,8 @@ To support a new message type, add its schema to `src/tx/schema.rs`, a case in `
 
 ### UI (NBGL)
 
-- Home + settings: `NbglHomeAndSettings` in `src/app_ui/menu.rs`, stored on `TxContext` and re-shown via `home.show_and_return()` after each flow.
+- Home + settings: `show_home()` in `src/app_ui/menu.rs`, re-shown after each flow. It calls `nbgl_useCaseHomeAndSettings` directly with descriptors in static variables, because the SDK's `NbglHomeAndSettings` passes the action button's descriptor from its stack and Nano NBGL keeps that pointer.
+- "Show address" (`src/app_ui/show_address.rs`) starts from the home screen's button, inside `Comm::next_command`, so it chains NBGL's asynchronous use cases (keypad, address review, status) instead of the SDK's blocking screens, which need the `Comm`.
 - After each command, `show_status_and_home_if_needed` in `src/main.rs` shows the NBGL success/failure page and returns home.
 - Icons are derived from the gnolang GitHub avatar, one per device size, in the same formats as the boilerplate's (1-bit for Nano and Apex P, 16-level grey on white for Stax and Flex).
 - `build.rs` pre-processes `icons/gno_14x14.gif` + `icons/mask_14x14.gif` into `glyphs/home_nano_nbgl.png` at compile time.
@@ -68,6 +69,7 @@ The generic embedded/Rust rules are imported above; the points below are this ap
 
 - `host-tests/` — `cargo +stable test` on the host (it has its own `.cargo/config.toml` that undoes the device target; stable because the pinned nightly would apply the root config's `build-std`). Fast; run it first for any `src/tx` change.
 - `tools/vectors/` — Go program rendering `tests/vectors/sign_docs.json` with upstream gno. Regenerate with `go run . > ../../tests/vectors/sign_docs.json`.
+- `fuzz/` — cargo-fuzz targets for the parser, DER conversion and source scanner, run by ClusterFuzzLite (`.clusterfuzzlite/`). Run locally with `./fuzz/run.sh <target> <seconds>`, which builds from a copy outside the repo because the root cargo config is for the device.
 - `tests/application_client/` — Python `GnoCommandSender`, response unpacker, vector loading, and `navigation.py` for toggling settings.
 - `tests/standalone/` — Ragger suite. Signatures are checked against both the public key and gno's own signature for the same payload.
 - Tests must construct APDU payloads with named variables — no raw hex literals.

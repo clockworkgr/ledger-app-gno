@@ -43,3 +43,11 @@ def test_wrong_data_length(backend):
     with pytest.raises(ExceptionRAPDU) as e:
         backend.exchange_raw(bytes.fromhex("E003000005"))
     assert e.value.status == Errors.SW_WRONG_APDU_LENGTH
+
+
+# Ensure commands that take no data refuse a payload
+def test_unexpected_data(backend):
+    for ins in (InsType.GET_VERSION, InsType.GET_APP_NAME):
+        with pytest.raises(ExceptionRAPDU) as e:
+            backend.exchange(cla=CLA, ins=ins, data=b"x")
+        assert e.value.status == Errors.SW_WRONG_APDU_LENGTH

@@ -207,25 +207,40 @@ pub fn write_amount(out: &mut String, amount: u64, denom: &[u8]) -> Result<(), E
     Ok(())
 }
 
+/// Splits one coin (`"1000ugnot"`) into a positive amount and its denom.
+pub fn parse_coin(coin: &[u8]) -> Result<(u64, &[u8]), Error> {
+    let split = coin
+        .iter()
+        .position(|c| !c.is_ascii_digit())
+        .ok_or(Error::InvalidCoins)?;
+    let amount = parse_i64_nonneg(&coin[..split]).map_err(|_| Error::InvalidCoins)?;
+    if amount == 0 {
+        return Err(Error::InvalidCoins);
+    }
+    Ok((amount, &coin[split..]))
+}
+
 /// Renders a tm2 coins string (`"1000ugnot,5foo"`, or `""`) for display.
 ///
-/// Returns `None` for the empty set so callers can say what empty means for
-/// their field.
+/// Accepts only what tm2's `Coins.IsValid` accepts: positive amounts and
+/// strictly ascending denoms, hence no duplicates. Returns `None` for the
+/// empty set so callers can say what empty means for their field.
 pub fn format_coins(s: &[u8]) -> Result<Option<String>, Error> {
     if s.is_empty() {
         return Ok(None);
     }
     let mut out = String::new();
+    let mut prev: &[u8] = &[];
     for (i, coin) in s.split(|&c| c == b',').enumerate() {
-        let split = coin
-            .iter()
-            .position(|c| !c.is_ascii_digit())
-            .ok_or(Error::InvalidCoins)?;
-        let amount = parse_i64_nonneg(&coin[..split]).map_err(|_| Error::InvalidCoins)?;
+        let (amount, denom) = parse_coin(coin)?;
         if i > 0 {
+            if denom <= prev {
+                return Err(Error::InvalidCoins);
+            }
             out.push_str(", ");
         }
-        write_amount(&mut out, amount, &coin[split..])?;
+        write_amount(&mut out, amount, denom)?;
+        prev = denom;
     }
     Ok(Some(out))
 }
@@ -260,8 +275,8 @@ pub fn format_utc(ts: u64) -> String {
 
 /// Renders arbitrary bytes as unambiguous printable ASCII.
 ///
-/// Anything outside printable ASCII, and the backslash itself, is shown as
-/// `\xNN`, so no two distinct values display alike and the device font never
+/// Anything outside printable ASCII is shown as `\xNN` and the backslash as
+/// `\\`, so no two distinct values display alike and the device font never
 /// meets a byte it cannot draw.
 pub fn push_display(out: &mut String, bytes: &[u8]) {
     for &b in bytes {
@@ -273,6 +288,19 @@ pub fn push_display(out: &mut String, bytes: &[u8]) {
             }
         }
     }
+}
+
+/// The length `push_display` renders `bytes` to, so it can be charged against
+/// the review budget before anything is allocated.
+pub fn display_len(bytes: &[u8]) -> usize {
+    bytes
+        .iter()
+        .map(|&b| match b {
+            b'\\' => 2,
+            0x20..=0x7e => 1,
+            _ => 4,
+        })
+        .sum()
 }
 
 pub fn push_hex(out: &mut String, bytes: &[u8]) {

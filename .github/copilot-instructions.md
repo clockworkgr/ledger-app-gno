@@ -12,7 +12,7 @@ Generic Ledger rules are in `.github/instructions/` (a symlink into the `ledger-
   - `json.rs` lexes the strict JSON subset amino emits; `schema.rs` lists every accepted key in sorted order; `mod.rs` validates values, builds the review and computes package fingerprints; `source.rs` pulls imports and literal addresses out of package source; `encoding.rs` holds bech32, base64, decimals, amounts and dates.
 - `src/crypto.rs` — key derivation, `g1` addresses, DER to 64-byte low-S signatures.
 - `src/bip32.rs` — accepts only `m/44'/118'/a'/0/i`.
-- `src/app_ui/`, `src/settings.rs` — NBGL screens and the NVM "Packages" switch.
+- `src/app_ui/`, `src/settings.rs` — NBGL screens and the NVM "Packages" switch. The home screen and "Show address" call NBGL's C use cases directly; see `CLAUDE.md` for why.
 
 `SIGN_TX` opens a session with a path chunk, then hashes and parses each payload chunk as it arrives; the payload is never buffered. Any error drops the session.
 
@@ -22,6 +22,7 @@ Generic Ledger rules are in `.github/instructions/` (a symlink into the `ledger-
 cargo ledger build nanosplus          # nanox | nanosplus | stax | flex | apex_p
 cd host-tests && cargo +stable test   # parser, on the host (stable: see README)
 pytest tests/standalone/ --tb=short -v --device nanosp
+./fuzz/run.sh fuzz_parser 300         # fuzzing, built outside the device cargo config
 ```
 
 `tools/vectors/` renders `tests/vectors/sign_docs.json` with upstream gno; both test suites replay it, and the Ragger tests require the device's signature to equal gno's byte for byte. To add a message type, update `src/tx/schema.rs`, `tools/vectors/main.go`, `host-tests/tests/parser.rs` and `tests/standalone/test_sign_cmd.py` together.

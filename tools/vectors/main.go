@@ -132,6 +132,11 @@ func main() {
 		{"send_zero_fee_memo", std.NewFee(100000, std.Coin{}), "thanks", []std.Msg{
 			bank.MsgSend{FromAddress: signer, ToAddress: other, Amount: ugnot(1)},
 		}},
+		// Every class of character Go's JSON encoder escapes, plus raw
+		// Unicode and an invalid byte, which gno replaces with U+FFFD.
+		{"memo_escapes", std.NewFee(100000, std.Coin{}), "q\"b\\ \b\t\n\f\r \x00\x1f \x7f <a&b> \u2028\u2029 é😀 bad:\xff", []std.Msg{
+			bank.MsgSend{FromAddress: signer, ToAddress: other, Amount: ugnot(1)},
+		}},
 		{"call", std.NewFee(2000000, std.NewCoin("ugnot", 1000000)), "", []std.Msg{
 			vm.MsgCall{Caller: signer, PkgPath: "gno.land/r/demo/boards", Func: "CreateThread", Args: []string{"1", "Hello", "World"}},
 		}},
@@ -153,6 +158,9 @@ func main() {
 		}},
 		{"create_session_minimal", std.NewFee(200000, std.NewCoin("ugnot", 1000)), "", []std.Msg{
 			auth.MsgCreateSession{Creator: signer, SessionKey: sessionKey, AllowPaths: []string{"*"}},
+		}},
+		{"create_session_run", std.NewFee(200000, std.NewCoin("ugnot", 1000)), "", []std.Msg{
+			auth.MsgCreateSession{Creator: signer, SessionKey: sessionKey, ExpiresAt: 1798761600, AllowPaths: []string{"vm/run"}, SpendLimit: ugnot(1000000), SpendPeriod: 86400},
 		}},
 		{"revoke_session", std.NewFee(200000, std.NewCoin("ugnot", 1000)), "", []std.Msg{
 			auth.MsgRevokeSession{Creator: signer, SessionKey: sessionKey},

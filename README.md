@@ -3,7 +3,9 @@
 A Ledger device application that signs [gno.land](https://gno.land) transactions, for Nano X,
 Nano S+, Stax, Flex and Apex P.
 
-* Derives tm2 accounts on `m/44'/118'/account'/0/index` and shows `g1...` addresses.
+* Derives tm2 accounts on `m/44'/118'/account'/0/index` and shows `g1...` addresses. "Show
+  address" on the home screen displays the address at any index of the first account, typed on
+  the device, without a computer.
 * Streams the amino sign doc, so payload size is not bounded by device RAM, and accepts only
   the exact bytes gno produces for the supported message types.
 * Clear-signs bank sends, realm calls, package approval and rejection, and session keys.
@@ -111,6 +113,16 @@ cd host-tests && cargo +stable test
 ```
 Use a stable toolchain: `rust-toolchain.toml` pins the device nightly, which would apply the root
 config's `build-std` to the host build and fail.
+#### Fuzzing
+`fuzz/` holds [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz) targets for the sign-doc parser
+(checked against a Go-style JSON re-encoder and for chunking-independent results), the DER signature
+conversion and the package source scanner. They run in CI through ClusterFuzzLite. To run one
+locally (needs rustup, a nightly toolchain and `cargo install cargo-fuzz`):
+```bash
+./fuzz/run.sh fuzz_parser 300        # target, seconds; also fuzz_der, fuzz_source
+```
+The script builds from a copy outside the repository, because `.cargo/config.toml` configures the
+device build. The corpus and any crash inputs are kept in `fuzz/work/`.
 #### Ragger functional tests
 Functional tests use Ledger's [Ragger](https://github.com/LedgerHQ/ragger) framework, in `tests/standalone/`.
 
@@ -177,6 +189,13 @@ python3 tools/get_target_id.py target/flex/release/app-gno   # -> 0x33300004
 
 Each GitHub release ships ready-to-run installers (Linux, Windows, macOS) that embed the release binaries and sideload the app without git, Docker or Python. See [`tools/sideload/README.md`](tools/sideload/README.md).
 
+## Branches and releases
+
+- `develop` is the integration branch: every pull request targets it, and it is the branch Ledger
+  builds for its test providers.
+- `main` holds released code. A release merges `develop` into `main` and tags the merge `x.y.z`;
+  the tag triggers the GitHub release.
+
 ## Continuous Integration
 The following workflows are executed in [GitHub Actions](https://github.com/features/actions) :
 
@@ -185,6 +204,9 @@ The following workflows are executed in [GitHub Actions](https://github.com/feat
 * End-to-end tests with the [Speculos](https://github.com/LedgerHQ/speculos) emulator and [ragger](https://github.com/LedgerHQ/ragger) (see [tests/](tests/))
 * Host-side parser tests, and a check that `tests/vectors` still matches the pinned gno version
 * CodeQL analysis (`security-and-quality` queries) of the Rust sources, workflows and test client
+* ClusterFuzzLite fuzzing of the parser, signature conversion and source scanner (pull requests,
+  pushes and a weekly long run)
+* `cargo audit` of the app's and the host tests' dependencies
 * Various lint checks :
   * Source code lint checks with `cargo fmt`
   * Python functional test code lint checks with `pylint` and `mypy`

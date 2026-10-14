@@ -27,9 +27,10 @@ mod handlers {
     pub mod sign_tx;
 }
 mod settings;
+mod sig;
 mod tx;
 
-use app_ui::menu::ui_menu_main;
+use app_ui::menu::show_home;
 use handlers::{
     get_public_key::handler_get_public_key,
     get_version::handler_get_version,
@@ -106,9 +107,13 @@ pub enum Instruction {
 impl TryFrom<ApduHeader> for Instruction {
     type Error = AppSW;
 
-    /// Validates INS, P1 and P2; handlers receive only well-formed commands.
-    /// CLA is checked by the SDK via [`Comm::set_expected_cla`].
+    /// Validates CLA, INS, P1 and P2; handlers receive only well-formed
+    /// commands. CLA is checked here rather than by the SDK so that a wrong
+    /// one, like any malformed header, also closes an open signing session.
     fn try_from(value: ApduHeader) -> Result<Self, Self::Error> {
+        if value.cla != CLA {
+            return Err(AppSW::ClaNotSupported);
+        }
         match (value.ins, value.p1, value.p2) {
             (INS_GET_VERSION, 0, 0) => Ok(Instruction::GetVersion),
             (INS_GET_APP_NAME, 0, 0) => Ok(Instruction::GetAppName),
@@ -153,7 +158,7 @@ fn show_status_and_home_if_needed(
             (true, StatusType::Transaction)
         }
         (Instruction::SignTx { .. }, AppSW::PackageTxDisabled) => {
-            tx_ctx.home.show_and_return();
+            show_home();
             return;
         }
         (_, _) => (false, StatusType::Transaction),
@@ -164,26 +169,30 @@ fn show_status_and_home_if_needed(
         NbglReviewStatus::new()
             .status_type(status_type)
             .show(comm, success);
-        tx_ctx.home.show_and_return();
+        show_home();
     }
 }
 
 #[no_mangle]
 extern "C" fn sample_main(_arg0: u32) {
     let comm = init_comm(&COMM);
-    comm.set_expected_cla(CLA);
 
     let mut tx_ctx = TxContext::new();
-    tx_ctx.home = ui_menu_main(comm);
-    tx_ctx.home.show_and_return();
+    show_home();
 
     loop {
         let command = comm.next_command();
         let decoded = command.decode::<Instruction>();
+        // A signing session survives only its own chunks: any malformed or
+        // unrelated command closes it, so the host must start over.
         let Ok(ins) = decoded else {
+            tx_ctx.close_session();
             let _ = comm.send(&[], decoded.unwrap_err());
             continue;
         };
+        if !matches!(ins, Instruction::SignTx { .. }) {
+            tx_ctx.close_session();
+        }
 
         let status = match handle_apdu(command, &ins, &mut tx_ctx) {
             Ok(reply) => {
@@ -206,6 +215,9 @@ fn handle_apdu<'a>(
 ) -> Result<io::CommandResponse<'a>, AppSW> {
     match ins {
         Instruction::GetAppName => {
+            if !command.get_data().is_empty() {
+                return Err(AppSW::WrongApduLength);
+            }
             let mut response = command.into_response();
             response.append(APP_NAME.as_bytes())?;
             Ok(response)

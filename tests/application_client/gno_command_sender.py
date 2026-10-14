@@ -30,6 +30,7 @@ class P2(IntEnum):
 
 
 class Errors(IntEnum):
+    SW_COMMAND_NOT_ACCEPTED = 0x6901
     SW_DENY = 0x6985
     SW_WRONG_P1P2 = 0x6A86
     SW_INS_NOT_SUPPORTED = 0x6D00
