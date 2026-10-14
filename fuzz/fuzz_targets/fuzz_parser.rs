@@ -61,7 +61,8 @@ fuzz_target!(|data: &[u8]| {
         .map(|f| f.name.len() + f.value.len() + 2)
         .sum();
     assert!(bytes <= MAX_REVIEW_BYTES, "review of {bytes} bytes");
-    assert_eq!(review.fields[0].name, "Signer");
+    assert_eq!(review.fields[0].name, "Sequence");
+    assert_eq!(review.fields[1].name, "Signer");
     for f in &review.fields {
         assert!(
             f.name
@@ -76,6 +77,11 @@ fuzz_target!(|data: &[u8]| {
 
     let value: serde_json::Value =
         serde_json::from_slice(doc).expect("accepted payload is not JSON");
+    assert_eq!(
+        value["sequence"].as_str(),
+        Some(review.fields[0].value.as_str()),
+        "shown sequence differs from the payload's"
+    );
     let mut canonical = String::new();
     go_json(&value, &mut canonical);
     assert_eq!(
