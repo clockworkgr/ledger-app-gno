@@ -54,16 +54,29 @@ def bytes_field(number: int, value: bytes) -> bytes:
     return field(number, 2, uvarint(len(value)) + value) if value else b""
 
 
-def canonical_vote(vote_type: int, height: int, round_: int, block_hash: bytes,
-                   parts_total: int, parts_hash: bytes, seconds: int, nanos: int,
-                   chain_id: str) -> bytes:
+def canonical_vote(
+    vote_type: int,
+    height: int,
+    round_: int,
+    block_hash: bytes,
+    parts_total: int,
+    parts_hash: bytes,
+    seconds: int,
+    nanos: int,
+    chain_id: str,
+) -> bytes:
     """tm2's CanonicalVote sign bytes (Tendermint v0.34 layout), length-prefixed."""
     parts = varint_field(1, parts_total) + bytes_field(2, parts_hash)
     block_id = bytes_field(1, block_hash) + bytes_field(2, parts)
     timestamp = varint_field(1, seconds) + varint_field(2, nanos)
-    body = (varint_field(1, vote_type) + fixed64_field(2, height) + fixed64_field(3, round_)
-            + bytes_field(4, block_id) + bytes_field(5, timestamp)
-            + bytes_field(6, chain_id.encode()))
+    body = (
+        varint_field(1, vote_type)
+        + fixed64_field(2, height)
+        + fixed64_field(3, round_)
+        + bytes_field(4, block_id)
+        + bytes_field(5, timestamp)
+        + bytes_field(6, chain_id.encode())
+    )
     return uvarint(len(body)) + body
 
 
@@ -84,8 +97,9 @@ def main() -> None:
     verifier = eddsa.new(eddsa.import_public_key(pubkey), "rfc8032")
 
     def vote(height: int, vote_type: int = PREVOTE) -> bytes:
-        return canonical_vote(vote_type, height, 0, bytes(range(32)), 1, bytes(range(32, 64)),
-                              1_760_000_000, 123_456_789, "test-chain")
+        return canonical_vote(
+            vote_type, height, 0, bytes(range(32)), 1, bytes(range(32, 64)), 1_760_000_000, 123_456_789, "test-chain"
+        )
 
     print("sign bytes:", len(vote(1)), "bytes")
 
@@ -95,8 +109,7 @@ def main() -> None:
             msg = vote(h, PREVOTE if h % 2 else PRECOMMIT)
             verifier.verify(msg, exchange(INS_SIGN, mode, 0, msg))
         per = (time.perf_counter() - start) / args.count
-        print(f"SIGN, {name}: {per * 1000:.1f} ms per signature over USB "
-              f"({args.count} signatures, all verified)")
+        print(f"SIGN, {name}: {per * 1000:.1f} ms per signature over USB ({args.count} signatures, all verified)")
 
     msg = vote(1)
     for name, mode in (("derive per sign", KEY_DERIVE), ("cached key", KEY_CACHED)):
@@ -109,8 +122,7 @@ def main() -> None:
             total += time.perf_counter() - start
             verifier.verify(msg, sig)
             done += n
-        print(f"BENCH, {name}: {total / done * 1000:.1f} ms per signature on the device "
-              f"({done} signatures)")
+        print(f"BENCH, {name}: {total / done * 1000:.1f} ms per signature on the device ({done} signatures)")
 
     dongle.close()
 
