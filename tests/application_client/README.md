@@ -1,6 +1,6 @@
 # Application Client for Functional Tests
 
-This minimalist Python client is used in the functional tests of the Gno Ledger application.  
+This minimalist Python client is used in the functional tests of the Gno.land Ledger application.  
 It serves as a communication layer between the test framework (`pytest`) and the device-under-test (Ledger app), sending commands and parsing responses.
 
 ## Purpose

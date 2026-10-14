@@ -1,4 +1,4 @@
-# Ledger Gno Application
+# Ledger Gno.land Application
 
 A Ledger device application that signs [gno.land](https://gno.land) transactions, for Nano X,
 Nano S+, Stax, Flex and Apex P.

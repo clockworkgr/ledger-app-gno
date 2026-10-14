@@ -165,7 +165,7 @@ fn show(account: u32, digits: &[u8]) -> Option<()> {
             review.address.as_ptr().cast(),
             addr_of!(review.list),
             addr_of!(review.icon),
-            c"Verify Gno address".as_ptr(),
+            c"Verify Gno.land address".as_ptr(),
             core::ptr::null(),
             Some(on_review),
         );

@@ -42,7 +42,7 @@ def enter(device, backend, navigator, account: str, index: str, path=None, test_
 def review_text(device, backend, navigator) -> str:
     """Pages through the address review up to its confirmation, returning
     everything shown on the way as one string."""
-    backend.wait_for_text_on_screen("Verify Gno address")
+    backend.wait_for_text_on_screen("Verify Gno.land")
     seen = []
     for _ in range(10):
         texts = [e["text"] for e in backend.get_current_screen_content()["events"]]
