@@ -38,7 +38,7 @@ Ledger hardware-wallet application for Gno (gno.land), written in Rust, targetin
   - `encoding.rs` — bech32, base64, canonical decimals, GNOT amounts, UTC dates, escaping for display.
   - `source.rs` — single-pass Go tokenizer that pulls import paths and literal `g1` addresses out of package source for the review.
 - `src/crypto.rs` — key derivation, `g1` addresses, and the conversion from SDK DER signatures to tm2's 64-byte low-S form.
-- `src/bip32.rs` — accepts only `m/44'/118'/a'/0/i`, in a fixed array; `address_index` builds the first account's path for "Show address".
+- `src/bip32.rs` — accepts only `m/44'/118'/a'/0/i`, in a fixed array; `address` builds the path "Show address" shows from a typed account and index.
 - `src/app_ui/` — NBGL screens; `src/settings.rs` — the NVM-backed "Packages" switch.
 
 ### Signing flow

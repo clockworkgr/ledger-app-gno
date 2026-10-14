@@ -20,10 +20,10 @@ disagree, the Go code on `master` wins. Fix this file in the same change.
 - Address: `RIPEMD160(SHA256(compressed_pubkey))`, 20 bytes (`tm2/pkg/crypto/secp256k1`).
 - Bech32 HRP: `g` for addresses (`g1...`), `gpub` for public keys.
 - "Show address" on the home screen lets the user check an address without a host: they type an
-  index on the keypad and the device shows the address and path for `m/44'/118'/0'/0/index`.
-  The keypad takes at most 7 digits (indices up to 9,999,999), because Nano's NBGL keypad keeps
-  the entry in 8 bytes and displays it as a C string. Other accounts remain reachable over
-  `GET_PUBLIC_KEY`.
+  account, then an index, on two keypads, and the device shows the address and path for
+  `m/44'/118'/account'/0/index`. Back on the index keypad returns to the account keypad. Each
+  keypad takes at most 7 digits (up to 9,999,999), because Nano's NBGL keypad keeps the entry in
+  8 bytes and displays it as a C string. Larger numbers remain reachable over `GET_PUBLIC_KEY`.
 
 ## Sign bytes
 
@@ -213,9 +213,9 @@ default).
 
 ### Show address
 
-"Show address" on the home screen: the keypad, then the address and path for the typed index.
+"Show address" on the home screen: the account keypad, the index keypad, then the address and path.
 
-<p><img src="../tests/standalone/snapshots/stax/test_show_address_accepted/keypad/00001.png" width="96" alt="test_show_address_accepted keypad 1"> <img src="../tests/standalone/snapshots/stax/test_show_address_accepted/keypad/00002.png" width="96" alt="test_show_address_accepted keypad 2"> <img src="../tests/standalone/snapshots/stax/test_show_address_accepted/00000.png" width="96" alt="test_show_address_accepted 0"> <img src="../tests/standalone/snapshots/stax/test_show_address_accepted/00001.png" width="96" alt="test_show_address_accepted 1"> <img src="../tests/standalone/snapshots/stax/test_show_address_accepted/00002.png" width="96" alt="test_show_address_accepted 2"></p>
+<p><img src="../tests/standalone/snapshots/stax/test_show_address_accepted/keypad/00001.png" width="96" alt="test_show_address_accepted keypad 1"> <img src="../tests/standalone/snapshots/stax/test_show_address_accepted/keypad/00002.png" width="96" alt="test_show_address_accepted keypad 2"> <img src="../tests/standalone/snapshots/stax/test_show_address_accepted/keypad/00004.png" width="96" alt="test_show_address_accepted keypad 4"> <img src="../tests/standalone/snapshots/stax/test_show_address_accepted/00000.png" width="96" alt="test_show_address_accepted 0"> <img src="../tests/standalone/snapshots/stax/test_show_address_accepted/00001.png" width="96" alt="test_show_address_accepted 1"> <img src="../tests/standalone/snapshots/stax/test_show_address_accepted/00002.png" width="96" alt="test_show_address_accepted 2"></p>
 
 ### Send
 

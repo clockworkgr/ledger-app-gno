@@ -10,8 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Key derivation on `m/44'/118'/account'/0/index` and `g1` address display.
-- "Show address" on the home screen: type an address index on the device and see the address at
-  `m/44'/118'/0'/0/index`, with no host involved.
+- "Show address" on the home screen: type an account and an address index on the device and see
+  the address at `m/44'/118'/account'/0/index`, with no host involved.
 - Streaming parser for gno.land amino sign docs, signing with SHA-256 / secp256k1 and returning
   64-byte low-S signatures.
 - Clear signing for `/bank.MsgSend`, `/vm.m_call`, `/vm.m_enable_pkg`, `/vm.m_reject_pkg`,

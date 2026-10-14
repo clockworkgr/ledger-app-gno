@@ -65,14 +65,14 @@ def _keypad_cell(device: str, column: int, row: int) -> NavIns:
 
 
 def open_show_address(device) -> list[NavIns | NavInsID]:
-    """From the home screen to the address index keypad."""
+    """From the home screen to the account keypad."""
     if device.is_nano:
         return [NavInsID.RIGHT_CLICK, NavInsID.BOTH_CLICK]
     return [NavIns(NavInsID.TOUCH, SHOW_ADDRESS_BUTTON[device.name])]
 
 
-def type_index(device, digits: str, typed: int = 0, validate: bool = True) -> list[NavIns | NavInsID]:
-    """Types `digits` on the keypad, after `typed` digits already entered,
+def type_digits(device, digits: str, typed: int = 0, validate: bool = True) -> list[NavIns | NavInsID]:
+    """Types `digits` on a keypad, after `typed` digits already entered,
     then validates unless told not to."""
     instructions: list[NavIns | NavInsID] = []
     if device.is_nano:
@@ -96,7 +96,8 @@ def type_index(device, digits: str, typed: int = 0, validate: bool = True) -> li
 
 
 def leave_keypad(device) -> list[NavIns | NavInsID]:
-    """Leaves the empty keypad, back to the home screen."""
+    """Leaves an empty keypad: the account keypad goes back to the home
+    screen, the address index keypad to the account keypad."""
     if device.is_nano:
         return [*_nano_moves(NANO_KEYPAD_START, 0), NavInsID.BOTH_CLICK]
     return [NavIns(NavInsID.TOUCH, KEYPAD_BACK[device.name])]
