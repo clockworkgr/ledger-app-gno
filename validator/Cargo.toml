@@ -1,0 +1,29 @@
+[package]
+name = "app-gno-validator"
+version = "0.0.1"
+authors = ["Gno contributors"]
+description = "Ledger device application signing gno.land consensus messages (benchmark build)"
+license = "Apache-2.0"
+repository = "https://github.com/clockworkgr/ledger-app-gno"
+edition = "2021"
+
+[dependencies]
+ledger_device_sdk = {version = "*", features = ["io_new", "sys"]}
+
+[features]
+default = ["ledger_device_sdk/nano_nbgl"]
+debug = ["ledger_device_sdk/debug"]
+
+[package.metadata.ledger]
+curve = ["ed25519"]
+flags = "0"
+path = ["44'/118'"]
+name = "Gno Validator"
+nanosplus = { icon = "../icons/gno_14x14.gif" }
+nanox = { icon = "../icons/gno_14x14.gif" }
+stax = { icon = "../icons/gno_32x32.gif" }
+flex = { icon = "../icons/gno_40x40.gif" }
+apex_p = { icon = "../icons/gno_32x32.png" }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("apex_p", "stax", "flex", "nanos", "nanox", "nanosplus"))'] }
