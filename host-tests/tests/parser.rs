@@ -52,11 +52,12 @@ fn parse(address: &str, doc: &str) -> Result<Review, Error> {
     parse_chunked(address, doc.as_bytes(), 255)
 }
 
-/// The review without its leading Signer field, which every review starts
-/// with (see `every_review_starts_with_the_signer`).
+/// The review without its leading Sequence and Signer fields, which every
+/// review starts with (see `every_review_starts_with_sequence_and_signer`).
 fn fields(r: &Review) -> Vec<(String, String)> {
-    assert_eq!(r.fields[0].name, "Signer");
-    r.fields[1..]
+    assert_eq!(r.fields[0].name, "Sequence");
+    assert_eq!(r.fields[1].name, "Signer");
+    r.fields[2..]
         .iter()
         .map(|f| (f.name.to_string(), f.value.clone()))
         .collect()
@@ -718,12 +719,17 @@ fn review_near_memory_limit_fits() {
 }
 
 #[test]
-fn every_review_starts_with_the_signer() {
+fn every_review_starts_with_sequence_and_signer() {
     let v = vectors();
     for (name, doc) in &v.cases {
+        // `sequence` is the sign doc's last key.
+        let (_, tail) = doc.rsplit_once("\"sequence\":\"").unwrap();
+        let sequence = tail.strip_suffix("\"}").unwrap();
         let r = parse(&v.address, doc).unwrap();
-        assert_eq!(r.fields[0].name, "Signer", "{name}");
-        assert_eq!(r.fields[0].value, v.address, "{name}");
+        assert_eq!(r.fields[0].name, "Sequence", "{name}");
+        assert_eq!(r.fields[0].value, sequence, "{name}");
+        assert_eq!(r.fields[1].name, "Signer", "{name}");
+        assert_eq!(r.fields[1].value, v.address, "{name}");
     }
 }
 

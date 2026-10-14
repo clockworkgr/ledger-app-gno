@@ -82,8 +82,9 @@ Every type that can be decoded from a transaction (amino-registered in a `packag
 - Always display chain ID, fee, gas, memo and every message's amounts and addresses. Each
   message's signer field (`from_address`, `caller`, `creator`, `approver`, `sender`) must equal
   the address derived on the device. If it doesn't, reject, since this app only signs for its own
-  account. The review starts with that address ("Signer"): the host picks the derivation path,
-  and the user must see which account a transaction spends from.
+  account. The review starts with the sequence ("Sequence"), which tells transactions apart at a
+  glance, then that address ("Signer"): the host picks the derivation path, and the user must see
+  which account a transaction spends from.
 - Coin strings must be valid tm2 `Coins`: positive amounts, denoms in strictly ascending order
   (so no duplicates), and valid denoms.
 - `max_deposit` (`m_call`, `m_addpkg`, `m_run`) is either empty, shown as "Chain default", or a
@@ -168,7 +169,7 @@ that the SDK answers on its own, and BOLOS commands (CLA `0xB0`), never reach th
 ## Limits
 
 The payload itself is unbounded. What is bounded, in `src/tx/mod.rs`, is what has to be kept for
-the review: 512 decoded bytes per value, 3072 bytes of review text, 56 fields, 8 messages, and
+the review: 512 decoded bytes per value, 3072 bytes of review text, 57 fields, 8 messages, and
 128 bytes per import path. Exceeding any of them returns `TX_TOO_LARGE`. Values are never
 truncated. Review text is charged as displayed (escapes included) **before** it is rendered or
 stored, including what is kept aside until the payload ends: the memo, fee, gas, chain ID and
@@ -218,7 +219,7 @@ default).
 
 ### Send
 
-`/bank.MsgSend`: the signing account first, then recipient, amount in GNOT, fee, gas and chain ID. Every review starts with the signer.
+`/bank.MsgSend`: the sequence and the signing account first, then recipient, amount in GNOT, fee, gas and chain ID. Every review starts with the sequence and the signer.
 
 <p><img src="../tests/standalone/snapshots/stax/test_sign_clear_send/00000.png" width="96" alt="test_sign_clear_send 0"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_send/00001.png" width="96" alt="test_sign_clear_send 1"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_send/00002.png" width="96" alt="test_sign_clear_send 2"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_send/00003.png" width="96" alt="test_sign_clear_send 3"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_send/00004.png" width="96" alt="test_sign_clear_send 4"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_send/00005.png" width="96" alt="test_sign_clear_send 5"></p>
 
@@ -286,7 +287,7 @@ Warnings for `*` allow-paths (which include scripts, so the Packages setting is 
 
 `/auth.m_revoke_all_sessions`.
 
-<p><img src="../tests/standalone/snapshots/stax/test_sign_clear_revoke_all_sessions/00000.png" width="96" alt="test_sign_clear_revoke_all_sessions 0"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_revoke_all_sessions/00001.png" width="96" alt="test_sign_clear_revoke_all_sessions 1"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_revoke_all_sessions/00002.png" width="96" alt="test_sign_clear_revoke_all_sessions 2"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_revoke_all_sessions/00003.png" width="96" alt="test_sign_clear_revoke_all_sessions 3"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_revoke_all_sessions/00004.png" width="96" alt="test_sign_clear_revoke_all_sessions 4"></p>
+<p><img src="../tests/standalone/snapshots/stax/test_sign_clear_revoke_all_sessions/00000.png" width="96" alt="test_sign_clear_revoke_all_sessions 0"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_revoke_all_sessions/00001.png" width="96" alt="test_sign_clear_revoke_all_sessions 1"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_revoke_all_sessions/00002.png" width="96" alt="test_sign_clear_revoke_all_sessions 2"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_revoke_all_sessions/00003.png" width="96" alt="test_sign_clear_revoke_all_sessions 3"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_revoke_all_sessions/00004.png" width="96" alt="test_sign_clear_revoke_all_sessions 4"> <img src="../tests/standalone/snapshots/stax/test_sign_clear_revoke_all_sessions/00005.png" width="96" alt="test_sign_clear_revoke_all_sessions 5"></p>
 
 ### Deploy package
 

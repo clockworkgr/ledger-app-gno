@@ -27,6 +27,10 @@ const HOME_GLYPH: NbglGlyph = NbglGlyph::from_include(include_gif!("glyphs/gno_6
 const HOME_GLYPH: NbglGlyph =
     NbglGlyph::from_include(include_gif!("glyphs/home_nano_nbgl.png", NBGL));
 
+/// The SDK's Nano eye icon (`lib_nbgl/glyphs/nano/icon_eye.gif`).
+#[cfg(any(target_os = "nanosplus", target_os = "nanox"))]
+const ACTION_GLYPH: NbglGlyph = NbglGlyph::from_include(include_gif!("glyphs/eye_14x14.gif", NBGL));
+
 const VERSION: &str = concat!(env!("CARGO_PKG_VERSION"), "\0");
 const AUTHORS: &str = concat!(env!("CARGO_PKG_AUTHORS"), "\0");
 const PACKAGES_TOKEN: u8 = FIRST_USER_TOKEN as u8;
@@ -39,6 +43,7 @@ struct Screens {
     info_types: [*const c_char; 2],
     info_contents: [*const c_char; 2],
     infos: nbgl_contentInfoList_t,
+    action_icon: nbgl_icon_details_t,
     action: nbgl_homeAction_t,
 }
 
@@ -96,7 +101,7 @@ pub fn show_home() {
         };
         s.action = nbgl_homeAction_t {
             text: c"Show address".as_ptr(),
-            icon: core::ptr::null(),
+            icon: action_icon(&mut s.action_icon),
             callback: Some(on_show_address),
             style: SOFT_HOME_ACTION,
         };
@@ -111,6 +116,20 @@ pub fn show_home() {
             Some(on_quit),
         );
     }
+}
+
+/// Nano draws a home step's text in bold only under an icon, as on the
+/// settings, info and quit steps; touch devices show the action as a text
+/// button.
+#[cfg(any(target_os = "nanosplus", target_os = "nanox"))]
+fn action_icon(slot: &mut nbgl_icon_details_t) -> *const nbgl_icon_details_t {
+    *slot = (&ACTION_GLYPH).into();
+    slot
+}
+
+#[cfg(not(any(target_os = "nanosplus", target_os = "nanox")))]
+fn action_icon(_slot: &mut nbgl_icon_details_t) -> *const nbgl_icon_details_t {
+    core::ptr::null()
 }
 
 unsafe extern "C" fn on_switch(token: c_int, _index: u8, _page: c_int) {

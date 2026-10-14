@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `/vm.m_addpkg` and `/vm.m_run` behind the "Packages" setting (off by default), signed through
   the blind-signing flow with a package fingerprint, the file list, and the imports and literal
   addresses found in the executed source.
-- Every review starts with the signing account's address.
+- Every review starts with the transaction's sequence, then the signing account's address.
 - Sessions allowed `vm/run` or `*` are warned about and need the "Packages" setting.
 
 ### Security
