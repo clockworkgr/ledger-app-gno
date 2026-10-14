@@ -8,7 +8,7 @@ repository = "https://github.com/clockworkgr/ledger-app-gno"
 edition = "2021"
 
 [dependencies]
-ledger_device_sdk = {version = "*", features = ["io_new"]}
+ledger_device_sdk = {version = "*", features = ["io_new", "sys"]}
 
 [build-dependencies]
 # Decode the source GIFs and write the processed grayscale PNG glyph without

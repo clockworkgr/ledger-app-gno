@@ -7,7 +7,6 @@ use crate::AppSW;
 use alloc::boxed::Box;
 use ledger_device_sdk::io::{Command, CommandResponse};
 use ledger_device_sdk::log;
-use ledger_device_sdk::nbgl::NbglHomeAndSettings;
 
 /// A signing session, open from the path chunk until the last chunk.
 struct Session {
@@ -22,7 +21,6 @@ pub struct TxContext {
     /// the review: Nano X has too little stack for it next to NBGL.
     session: Option<Box<Session>>,
     review_finished: bool,
-    pub home: NbglHomeAndSettings,
 }
 
 impl TxContext {
@@ -30,7 +28,6 @@ impl TxContext {
         TxContext {
             session: None,
             review_finished: false,
-            home: Default::default(),
         }
     }
 

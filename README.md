@@ -3,7 +3,9 @@
 A Ledger device application that signs [gno.land](https://gno.land) transactions, for Nano X,
 Nano S+, Stax, Flex and Apex P.
 
-* Derives tm2 accounts on `m/44'/118'/account'/0/index` and shows `g1...` addresses.
+* Derives tm2 accounts on `m/44'/118'/account'/0/index` and shows `g1...` addresses. "Show
+  address" on the home screen displays the address at any index of the first account, typed on
+  the device, without a computer.
 * Streams the amino sign doc, so payload size is not bounded by device RAM, and accepts only
   the exact bytes gno produces for the supported message types.
 * Clear-signs bank sends, realm calls, package approval and rejection, and session keys.

@@ -30,7 +30,7 @@ mod settings;
 mod sig;
 mod tx;
 
-use app_ui::menu::ui_menu_main;
+use app_ui::menu::show_home;
 use handlers::{
     get_public_key::handler_get_public_key,
     get_version::handler_get_version,
@@ -158,7 +158,7 @@ fn show_status_and_home_if_needed(
             (true, StatusType::Transaction)
         }
         (Instruction::SignTx { .. }, AppSW::PackageTxDisabled) => {
-            tx_ctx.home.show_and_return();
+            show_home();
             return;
         }
         (_, _) => (false, StatusType::Transaction),
@@ -169,7 +169,7 @@ fn show_status_and_home_if_needed(
         NbglReviewStatus::new()
             .status_type(status_type)
             .show(comm, success);
-        tx_ctx.home.show_and_return();
+        show_home();
     }
 }
 
@@ -178,8 +178,7 @@ extern "C" fn sample_main(_arg0: u32) {
     let comm = init_comm(&COMM);
 
     let mut tx_ctx = TxContext::new();
-    tx_ctx.home = ui_menu_main(comm);
-    tx_ctx.home.show_and_return();
+    show_home();
 
     loop {
         let command = comm.next_command();

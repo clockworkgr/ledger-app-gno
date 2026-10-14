@@ -1,5 +1,6 @@
 pub mod address;
 pub mod menu;
+pub mod show_address;
 pub mod sign;
 
 use ledger_device_sdk::include_gif;

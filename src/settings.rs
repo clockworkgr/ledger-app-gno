@@ -1,3 +1,4 @@
+use core::ffi::CStr;
 use ledger_device_sdk::nvm::*;
 use ledger_device_sdk::NVMData;
 
@@ -6,7 +7,7 @@ use ledger_device_sdk::NVMData;
 /// zeroed, so it is off until the user turns it on.
 pub const SETTING_PACKAGE_TX: usize = 0;
 
-pub const SETTINGS_STRINGS: [[&str; 2]; 1] = [["Packages", "Allow deploying and running code"]];
+pub const SETTINGS_STRINGS: [[&CStr; 2]; 1] = [[c"Packages", c"Allow deploying and running code"]];
 
 // This is necessary to store the object in NVM and not in RAM
 const SETTINGS_SIZE: usize = 10;
