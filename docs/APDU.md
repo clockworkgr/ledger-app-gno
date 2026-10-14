@@ -60,8 +60,8 @@ again at step 1. The payload must be byte for byte what gno renders: strings use
 Go's `encoding/json` escaping and valid UTF-8, coins are valid tm2 coins, and the
 fee is at most one positive coin (`docs/GNO.instructions.md`).
 
-The review starts with the signing account's `g1` address, since the host
-chooses the derivation path.
+The review starts with the payload's sequence, then the signing account's `g1`
+address, since the host chooses the derivation path.
 
 Response: `signature (64)`, which is `R (32) | S (32)` with S in the lower half
 of the group order, over `SHA-256(payload)`. This is the form tm2 verifies.
