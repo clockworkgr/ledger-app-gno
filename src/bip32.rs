@@ -12,13 +12,19 @@ pub const PATH_LEN: usize = 5;
 pub struct Bip32Path([u32; PATH_LEN]);
 
 impl Bip32Path {
-    /// `m/44'/118'/0'/0/index`, the path of the address at `index` in the
-    /// first account. Refuses hardened indices, as the APDU parser does.
-    pub fn address_index(index: u32) -> Result<Self, AppSW> {
-        if index >= HARDENED {
+    /// `m/44'/118'/account'/0/index`. Both numbers must be below 2^31, as
+    /// the APDU parser requires: the account is then hardened here.
+    pub fn address(account: u32, index: u32) -> Result<Self, AppSW> {
+        if account >= HARDENED || index >= HARDENED {
             return Err(AppSW::InvalidPath);
         }
-        Ok(Bip32Path([PURPOSE, COIN_TYPE, HARDENED, 0, index]))
+        Ok(Bip32Path([
+            PURPOSE,
+            COIN_TYPE,
+            account | HARDENED,
+            0,
+            index,
+        ]))
     }
 }
 
