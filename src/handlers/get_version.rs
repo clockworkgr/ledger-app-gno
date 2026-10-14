@@ -1,5 +1,5 @@
 /*****************************************************************************
- *   Ledger App Gno.
+ *   Ledger App Gno.land.
  *   Derived from Ledger App Boilerplate Rust, (c) 2023 Ledger SAS.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");

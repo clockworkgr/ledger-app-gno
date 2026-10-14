@@ -10,7 +10,7 @@ from application_client.gno_response_unpacker import (
 
 def test_app_name(backend):
     client = GnoCommandSender(backend)
-    assert unpack_get_app_name_response(client.get_app_name().data) == "Gno"
+    assert unpack_get_app_name_response(client.get_app_name().data) == "Gno.land"
 
 
 def test_version(backend):

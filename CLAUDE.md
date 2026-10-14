@@ -23,7 +23,7 @@ Chain facts, sign-doc format, signature encoding and the clear-signing policy fo
 
 ## What this repo is
 
-Ledger hardware-wallet application for Gno (gno.land), written in Rust, targeting Nano X, Nano S+, Stax, Flex, and Apex P. It is a `#![no_std]` / `#![no_main]` embedded binary built against `ledger_device_sdk`, forked from [`LedgerHQ/app-boilerplate-rust`](https://github.com/LedgerHQ/app-boilerplate-rust) at `0f857a7`. Nano S is **not** supported.
+Ledger hardware-wallet application for gno.land, named "Gno.land" on the device, written in Rust, targeting Nano X, Nano S+, Stax, Flex, and Apex P. It is a `#![no_std]` / `#![no_main]` embedded binary built against `ledger_device_sdk`, forked from [`LedgerHQ/app-boilerplate-rust`](https://github.com/LedgerHQ/app-boilerplate-rust) at `0f857a7`. Nano S is **not** supported.
 
 ## Architecture
 

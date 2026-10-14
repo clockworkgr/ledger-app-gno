@@ -7,6 +7,6 @@ pub fn ui_display_address(comm: &mut Comm, address: &[u8]) -> Result<bool, AppSW
     let address = core::str::from_utf8(address).map_err(|_| AppSW::AddrDisplayFail)?;
     Ok(NbglAddressReview::new()
         .glyph(&APP_GLYPH)
-        .review_title("Verify Gno address")
+        .review_title("Verify Gno.land address")
         .show(comm, address))
 }

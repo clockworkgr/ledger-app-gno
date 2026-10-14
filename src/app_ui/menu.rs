@@ -106,7 +106,7 @@ pub fn show_home() {
             style: SOFT_HOME_ACTION,
         };
         nbgl_useCaseHomeAndSettings(
-            c"Gno".as_ptr(),
+            c"Gno.land".as_ptr(),
             addr_of!(s.icon),
             core::ptr::null(),
             INIT_HOME_PAGE as u8,

@@ -25,7 +25,7 @@ debug = ["ledger_device_sdk/debug"]
 curve = ["secp256k1"]
 flags = "0"
 path = ["44'/118'"]
-name = "Gno"
+name = "Gno.land"
 nanosplus = { icon = "icons/gno_14x14.gif" }
 nanox = { icon = "icons/gno_14x14.gif" }
 stax = { icon = "icons/gno_32x32.gif" }
