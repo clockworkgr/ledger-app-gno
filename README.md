@@ -189,6 +189,13 @@ python3 tools/get_target_id.py target/flex/release/app-gno   # -> 0x33300004
 
 Each GitHub release ships ready-to-run installers (Linux, Windows, macOS) that embed the release binaries and sideload the app without git, Docker or Python. See [`tools/sideload/README.md`](tools/sideload/README.md).
 
+## Branches and releases
+
+- `develop` is the integration branch: every pull request targets it, and it is the branch Ledger
+  builds for its test providers.
+- `main` holds released code. A release merges `develop` into `main` and tags the merge `x.y.z`;
+  the tag triggers the GitHub release.
+
 ## Continuous Integration
 The following workflows are executed in [GitHub Actions](https://github.com/features/actions) :
 
