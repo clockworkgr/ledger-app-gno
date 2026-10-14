@@ -106,6 +106,7 @@ replace comparing the fingerprint. `docs/GNO.instructions.md` defines them.
 | `0x6D00` | INS_NOT_SUPPORTED | Unknown instruction |
 | `0x6E00` | CLA_NOT_SUPPORTED | Wrong CLA |
 | `0x6E03` | WRONG_APDU_LENGTH | Malformed data length |
+| `0x6901` | COMMAND_NOT_ACCEPTED | The device is still busy with the previous command, e.g. showing the status page after an address or transaction review. Sent by the SDK: the APDU was not processed and can be resent |
 | `0xB002` | ADDR_DISPLAY_FAIL | The address could not be displayed |
 | `0xB005` | TX_PARSING_FAIL | The payload is not an accepted gno sign doc |
 | `0xB008` | TX_SIGN_FAIL | Signing failed |
@@ -116,3 +117,11 @@ replace comparing the fingerprint. `docs/GNO.instructions.md` defines them.
 | `0xB00D` | TX_WRONG_SIGNER | A message is signed by an address other than the device's |
 | `0xB00E` | TX_TOO_LARGE | A displayed value or the review exceeds device limits |
 | `0xB00F` | PACKAGE_TX_DISABLED | The Packages setting is off and the payload can run code: `m_addpkg`, `m_run`, or a session allowed `vm/run` or `*` |
+
+### Busy after a review
+
+After a GET_PUBLIC_KEY with `P1 = 0x01` (approved or rejected) or a SIGN_TX
+whose review finished (approved or rejected), the response is sent before the
+device shows its status page. Until that page closes, the SDK answers every
+APDU except BOLOS GET_VERSION with `0x6901` without passing it to the app, so
+it changes nothing in the app's state. Hosts should resend after a short delay.
