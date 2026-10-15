@@ -1,5 +1,5 @@
 /*****************************************************************************
- *   Ledger App Gno.
+ *   Ledger App Gno.land.
  *   Derived from Ledger App Boilerplate Rust, (c) 2023 Ledger SAS.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
@@ -45,7 +45,7 @@ extern crate alloc;
 
 ledger_device_sdk::define_comm!(COMM);
 
-const APP_NAME: &str = "Gno";
+const APP_NAME: &str = "Gno.land";
 
 const CLA: u8 = 0xe0;
 const INS_GET_VERSION: u8 = 0x03;

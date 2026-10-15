@@ -23,9 +23,9 @@ pub fn ui_display_tx(comm: &mut Comm, review: &Review) -> Result<bool, AppSW> {
 
     let mut nbgl = NbglReview::new()
         .titles(
-            "Review transaction\nto sign on Gno",
+            "Review transaction\nto sign on Gno.land",
             "",
-            "Sign transaction\non Gno?",
+            "Sign transaction\non Gno.land?",
         )
         .glyph(&APP_GLYPH);
     if review.blind {

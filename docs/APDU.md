@@ -1,4 +1,4 @@
-# Gno application APDU protocol
+# Gno.land application APDU protocol
 
 All commands use `CLA = 0xE0`. Responses end with a two-byte status word; data
 precedes it where listed. Integers are big-endian.
@@ -28,7 +28,7 @@ Response: `major (1) | minor (1) | patch (1)`.
 
 ### GET_APP_NAME
 
-Response: the ASCII string `Gno`.
+Response: the ASCII string `Gno.land`.
 
 ### GET_PUBLIC_KEY
 

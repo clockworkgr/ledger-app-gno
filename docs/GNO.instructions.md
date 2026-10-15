@@ -1,9 +1,9 @@
 ---
-description: "Gno (gno.land / Tendermint2) specifics for the Gno Ledger application"
+description: "Gno (gno.land / Tendermint2) specifics for the Gno.land Ledger application"
 applyTo: "**/*"
 ---
 
-# Gno Application Rules
+# Gno.land Application Rules
 
 This app signs transactions for gno.land chains, which run on Tendermint2 (tm2). The reference
 implementation is upstream `github.com/gnolang/gno` (not the `allinbits/gno` fork): `tm2/` for

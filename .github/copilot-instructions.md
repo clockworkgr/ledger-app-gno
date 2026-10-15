@@ -1,4 +1,4 @@
-# Ledger Gno App Development Guide
+# Ledger Gno.land App Development Guide
 
 This is a Rust application for Ledger hardware wallets (Nano X, S+, Stax, Flex, Apex P) using the `ledger_device_sdk`. It signs gno.land (Tendermint2) transactions.
 
